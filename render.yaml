@@ -32,10 +32,11 @@ services:
         generateValue: true
       - key: JWT_SIGNING_KEY
         generateValue: true
-      # Matches the `name:` above — update this if you rename the service
-      # in Render's dashboard, since Render assigns the hostname from it.
-      - key: DJANGO_ALLOWED_HOSTS
-        value: mindcare-backend.onrender.com
+      # No DJANGO_ALLOWED_HOSTS entry needed here — Render assigns each
+      # service a hostname with a random suffix that can't be predicted
+      # ahead of time (e.g. mindcare-backend-m3ji.onrender.com), so
+      # settings/base.py reads it directly from Render's own
+      # RENDER_EXTERNAL_HOSTNAME env var (auto-injected, no setup needed).
       - key: SECURE_SSL_REDIRECT
         value: "True"
       # No persistent background-worker process on the free tier — tasks

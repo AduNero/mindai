@@ -33,6 +33,14 @@ if env_file.exists() and os.environ.get("DJANGO_SETTINGS_MODULE") != "config.set
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key-change-me")
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# Render assigns each web service a hostname with an unpredictable random
+# suffix (e.g. mindcare-backend-m3ji.onrender.com) that can't be known
+# ahead of time in render.yaml — RENDER_EXTERNAL_HOSTNAME is injected
+# automatically by Render itself at runtime with the real value, so this
+# covers it without needing to hardcode a guess. A no-op everywhere else,
+# since the env var simply won't exist off Render.
+if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
+    ALLOWED_HOSTS.append(os.environ["RENDER_EXTERNAL_HOSTNAME"])
 
 SITE_NAME = env("SITE_NAME", default="MindCare AI")
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
