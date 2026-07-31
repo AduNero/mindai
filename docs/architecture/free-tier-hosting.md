@@ -24,25 +24,19 @@ for anything beyond a demo.
    reads [`render.yaml`](../../render.yaml) at the repo root automatically —
    it defines the free web service and free Postgres database, and
    generates `DJANGO_SECRET_KEY`/`JWT_SIGNING_KEY` for you.
-3. Render deploys immediately, but three env vars are intentionally left
+3. Render deploys immediately, but several env vars are intentionally left
    blank (`sync: false` in `render.yaml`) since they depend on accounts
    you haven't created yet — come back and fill these in after steps 2–3
    below: `CHAT_LLM_API_KEY`, `REDIS_URL`, `CORS_ALLOWED_ORIGINS`,
    `CSRF_TRUSTED_ORIGINS`.
-4. Once deployed, use Render's **Shell** tab (under your service) to run
-   the one-time setup commands — there's no persistent worker to `exec`
-   into like `docker compose exec`, but the web service's shell works the
-   same way:
-   ```bash
-   python manage.py seed_assessments
-   python manage.py seed_recommendations
-   python manage.py seed_emergency_resources
-   python manage.py setup_periodic_tasks
-   python manage.py setup_ai_periodic_tasks
-   python manage.py createsuperuser
-   ```
-   (`migrate` and `collectstatic` already run automatically as part of the
-   Blueprint's start command.)
+4. **The free plan has no Shell access**, so `render.yaml`'s `startCommand`
+   chains in everything installation-guide.md normally has you run by
+   hand — `migrate`, `collectstatic`, all three seed commands, both
+   `setup_periodic_tasks`/`setup_ai_periodic_tasks`, and
+   `bootstrap_admin` (creates your login from `DJANGO_SUPERUSER_EMAIL`/
+   `DJANGO_SUPERUSER_PASSWORD`, both also `sync: false` — set them in
+   Settings → Environment Variables, same as the others). All of it is
+   idempotent, so it's safe that this reruns on every deploy.
 
 ## 2. Redis — Upstash
 

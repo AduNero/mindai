@@ -20,7 +20,22 @@ services:
     plan: free
     rootDir: backend
     buildCommand: "pip install -r requirements/render.txt"
-    startCommand: "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application"
+    # The free plan has no Shell access for one-off commands, so the
+    # one-time setup that installation-guide.md normally has you run by
+    # hand is chained in here instead. All of these are idempotent (seed
+    # commands use update_or_create; bootstrap_admin no-ops without
+    # DJANGO_SUPERUSER_EMAIL/PASSWORD set and otherwise updates rather
+    # than erroring on an existing user) — safe to run on every deploy.
+    startCommand: >-
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      python manage.py seed_assessments &&
+      python manage.py seed_recommendations &&
+      python manage.py seed_emergency_resources &&
+      python manage.py setup_periodic_tasks &&
+      python manage.py setup_ai_periodic_tasks &&
+      python manage.py bootstrap_admin &&
+      gunicorn config.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.production
@@ -53,6 +68,13 @@ services:
       # memory limit.
       - key: AI_ANALYSIS_ENABLED
         value: "False"
+      # Sets up your login for the deployed site — bootstrap_admin (run
+      # as part of startCommand above) creates/updates this account on
+      # every deploy. Fill these in, or leave blank to skip creating one.
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
       # Fill in after creating the other free accounts — see
       # docs/architecture/free-tier-hosting.md.
       - key: CHAT_LLM_API_KEY
