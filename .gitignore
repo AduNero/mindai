@@ -37,13 +37,6 @@ frontend/*.tsbuildinfo
 frontend/vite.config.js
 frontend/vite.config.d.ts
 
-# --- LibreChat ---
-librechat/data-node/
-librechat/meili_data/
-librechat/logs/
-librechat/config/librechat.env
-!librechat/config/librechat.env.example
-
 # --- Docker ---
 docker/mysql/data/
 

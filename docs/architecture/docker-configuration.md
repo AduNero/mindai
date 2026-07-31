@@ -12,7 +12,7 @@ hot-reloading development stack and a production-oriented one.
 | `docker/backend/Dockerfile` | Two targets: `base` (Django + Celery Beat, no AI deps) and `worker` (adds `requirements/ai.txt` — used only by `celery_worker`). |
 | `docker/frontend/Dockerfile` | Three targets: `development` (Vite dev server), `build` (intermediate, produces the static bundle), `production` (that bundle served by a minimal Nginx). |
 | `docker/frontend/nginx.conf` | Static-file server config for the frontend's own production-target Nginx (SPA fallback routing). |
-| `docker/nginx/nginx.conf` | The main reverse proxy, in front of everything in production — see [deployment-guide.md](deployment-guide.md) for the subdomain topology it implements. |
+| `docker/nginx/nginx.conf` | The main reverse proxy, in front of everything in production — see [deployment-guide.md](deployment-guide.md). |
 
 ## Why the backend image is split into two targets
 
@@ -39,12 +39,11 @@ built `dist/` folder, not the entire `node_modules` tree used to produce it.
 
 Both compose files rely on Docker Compose's default network — every
 service can reach every other service by its service name (`db`, `redis`,
-`backend`, `librechat_mongo`, etc.), which is why `.env.example`'s
-`MYSQL_HOST`, `REDIS_URL`, and `LIBRECHAT_MONGO_URI` all reference service
-names rather than `localhost`. No custom network definitions were needed
-for this project's scale; splitting into multiple networks (e.g.
-isolating the database from the reverse proxy) is a reasonable production
-hardening step beyond this project's scope.
+`backend`, etc.), which is why `.env.example`'s `MYSQL_HOST` and
+`REDIS_URL` reference service names rather than `localhost`. No custom
+network definitions were needed for this project's scale; splitting into
+multiple networks (e.g. isolating the database from the reverse proxy) is
+a reasonable production hardening step beyond this project's scope.
 
 ## Health checks and startup ordering
 
@@ -52,9 +51,6 @@ hardening step beyond this project's scope.
 them uses `depends_on: ... condition: service_healthy` rather than the
 default `service_started`, so `backend`/`celery_worker`/`celery_beat`
 don't attempt to connect to a MySQL server that's still initializing.
-LibreChat and its Mongo don't have this treatment since nothing in the
-MindCare stack has a hard startup-order dependency on LibreChat being
-ready immediately (the OIDC/sync integration tolerates it starting later).
 
 ## Volumes
 
@@ -65,8 +61,6 @@ ready immediately (the OIDC/sync integration tolerates it starting later).
 | `media_data` | User-uploaded files (profile pictures, resource thumbnails, generated reports) |
 | `static_data` | `collectstatic` output (production only — `WhiteNoise`/Nginx serve from here) |
 | `frontend_node_modules` | Dev-only, keeps the container's `node_modules` from being shadowed by a bind-mounted host directory of a different OS/architecture |
-| `librechat_mongo_data` | LibreChat's own conversation store |
-| `librechat_images` | LibreChat-generated/uploaded image assets |
 
 ## Building and running
 

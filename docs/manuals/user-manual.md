@@ -63,19 +63,16 @@ its detail view.
 
 ## AI Chat
 
-Two tabs:
+Talk to the AI companion directly in the page — start a new conversation
+or pick up an old one from the list on the left, search past
+conversations, and **export** any conversation as a plain text file.
+Every message you send is analyzed in the background for sentiment/
+emotion/risk, the same as journal entries.
 
-- **Live Chat** — a full conversational AI experience powered by LibreChat,
-  embedded right in the page. You're automatically signed in — no separate
-  login. Conversation history, search, and full LibreChat features are
-  available here.
-- **History** — a lightweight, always-available view of your conversations
-  (including ones from Live Chat, synced automatically), with search and a
-  **Sync** button to pull the latest from Live Chat immediately. You can
-  also start a simple text conversation here even if Live Chat isn't
-  reachable.
-
-Every conversation can be **exported** as a plain text file from either tab.
+The AI companion is supportive, not a licensed therapist — it can't
+diagnose or prescribe, and if a conversation touches on crisis, it will
+point you toward the Emergency Resources page and local emergency
+services rather than trying to handle that itself.
 
 ## Assessments
 

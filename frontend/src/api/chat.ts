@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatSearchResult, ChatSessionDetail, Paginated } from "@/types";
+import type { ChatMessage, ChatSearchResult, ChatSessionDetail, Paginated, SendMessageResponse } from "@/types";
 import type { ChatSession } from "@/types";
 
 import { apiClient } from "./client";
@@ -19,7 +19,7 @@ export const chatApi = {
   getMessages: (id: string) => apiClient.get<ChatMessage[]>(`/chat/sessions/${id}/messages/`),
 
   sendMessage: (id: string, content: string) =>
-    apiClient.post<ChatMessage>(`/chat/sessions/${id}/send/`, { content }),
+    apiClient.post<SendMessageResponse>(`/chat/sessions/${id}/send/`, { content }),
 
   // JWT-protected — must be fetched through apiClient (Authorization header),
   // not linked to directly, so a Blob download is built from the response.
@@ -30,6 +30,4 @@ export const chatApi = {
     }),
 
   search: (q: string) => apiClient.get<ChatSearchResult[]>("/chat/search/", { params: { q } }),
-
-  syncLibreChatNow: () => apiClient.post<{ synced_conversations: number }>("/chat/sync-librechat/"),
 };

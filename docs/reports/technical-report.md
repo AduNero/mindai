@@ -19,17 +19,17 @@ support platform built as a final-year IT project. It combines mood
 tracking, journaling with automated sentiment/emotion analysis, five
 standardized mental health assessments (PHQ-9, GAD-7, a Perceived Stress
 Scale, a Burnout Assessment, and a Self-Esteem Scale), an AI-informed
-recommendation engine, counseling appointment booking, and an embedded
-AI chat experience (LibreChat, integrated via single sign-on) — all behind
-a role-based (user/counselor/admin) Django REST Framework API and a React/
-TypeScript frontend. The system explicitly does not diagnose medical
-conditions; a phrase-based and clinically-informed crisis-detection layer
-surfaces localized emergency resources rather than attempting to replace
-professional care. The backend is validated by 200 automated tests (86%
-line coverage) and the frontend by an additional 20, and key integration
-points — real Hugging Face model inference, the OIDC single-sign-on flow,
-and the wellness-score computation — were verified against running
-processes during development, not just reviewed as code.
+recommendation engine, counseling appointment booking, and an AI companion
+chat (any OpenAI-API-compatible provider) — all behind a role-based
+(user/counselor/admin) Django REST Framework API and a React/TypeScript
+frontend. The system explicitly does not diagnose medical conditions; a
+phrase-based and clinically-informed crisis-detection layer surfaces
+localized emergency resources rather than attempting to replace
+professional care. The backend is validated by an automated test suite
+(90%+ line coverage) and the frontend by additional unit tests, and key
+integration points — real Hugging Face model inference and the
+wellness-score computation — were verified against running processes
+during development, not just reviewed as code.
 
 ## 1. Introduction
 
@@ -81,20 +81,20 @@ engineering decisions (see §6.4).
 | Frontend | React 18 + TypeScript + Tailwind CSS | Strong typing catches integration bugs at compile time (see §7); Tailwind keeps the dark/light mode and responsive design consistent without a component library dependency. |
 | Backend | Django + Django REST Framework | Batteries-included ORM/migrations/admin reduce boilerplate; DRF's serializer/permission/throttle system maps cleanly onto the role-based access control this project needs. |
 | Database | MySQL 8 | Explicitly required by the project brief; UUID primary keys throughout avoid exposing sequential IDs for sensitive records. |
-| Auth | JWT (`djangorestframework-simplejwt`) + OIDC (`django-oauth-toolkit`) | JWT for the SPA's stateless API auth; a *second*, narrower OIDC provider role specifically to make MindCare the identity source for LibreChat's SSO (see §5.3) — these solve different problems and aren't redundant. |
+| Auth | JWT (`djangorestframework-simplejwt`) | Stateless bearer-token auth for the SPA; account lockout, refresh rotation, and session tracking layered on top (see §5.3). |
 | AI/NLP | Hugging Face Transformers (`distilbert-base-uncased-finetuned-sst-2-english`, `SamLowe/roberta-base-go_emotions`) | Both are widely-used, well-documented, CPU-runnable models. GoEmotions was specifically chosen because its 28 fine-grained labels are a superset of the 8 emotions this project's spec requires (joy, fear, sadness, anger, love, surprise, optimism, disappointment) — rather than forcing an unrelated model's labels to fit, or fabricating a mapping. |
 | Async jobs | Celery + Redis | AI inference and email are too slow for the request/response cycle; Celery Beat drives scheduled reminders and the daily wellness-score/mood-prediction sweep. |
-| Chat | LibreChat (unmodified, Dockerized) | Building a competitive chat UI + multi-provider LLM orchestration layer from scratch would dwarf the rest of this project in scope for no pedagogical benefit; integrating a real, actively-maintained open-source system via standard protocols (OIDC, MongoDB read access) is the more realistic engineering exercise. |
-| Deployment | Docker Compose | Matches the brief; makes the whole multi-service stack (MySQL, Redis, Celery, LibreChat + its Mongo, Nginx) reproducible with one command. |
+| Chat | Direct integration with any OpenAI-API-compatible provider (`openai` Python client; default NVIDIA NIM) | The conversation loop — storage, history, search, export, analysis — lives entirely in MindCare's own Django app and MySQL; only reply generation is delegated to an external provider via one API call per message. No second chat service, database, or SSO surface to operate. |
+| Deployment | Docker Compose | Matches the brief; makes the whole multi-service stack (MySQL, Redis, Celery, Nginx) reproducible with one command. |
 
 ## 3. System architecture
 
 See [docs/architecture/architecture-diagram.md](../architecture/architecture-diagram.md)
 for the full component diagram. In summary: a React SPA talks to a Django
 REST API over JWT; Celery workers handle AI inference and scheduled jobs;
-LibreChat runs as an independent service, integrated via OIDC (auth) and a
-read-only MongoDB sync (conversation history); MySQL is the system of
-record for everything except live chat content.
+MySQL is the system of record for everything, including chat history —
+the AI companion's replies are generated via one API call to an external
+LLM provider and stored like any other message.
 
 ## 4. Database design
 
@@ -153,26 +153,34 @@ Three layers, deliberately separated by what each is good at:
    for next-day mood prediction — appropriate given the small
    per-user sample sizes involved, where a learned model would overfit noise.
 
-### 5.4 LibreChat integration
+### 5.4 AI chat integration
 
-MindCare's Django backend runs as LibreChat's OpenID Connect identity
-provider, so a user who's already logged into MindCare doesn't see a
-second login screen for the embedded chat. A one-directional MongoDB sync
-mirrors LibreChat conversations into MindCare's own tables so the AI
-analysis pipeline and search/export features work uniformly across both
-locally-created and LibreChat-originated messages. Full detail, including
-a documented browser third-party-cookie limitation and its mitigations:
-[docs/architecture/librechat-integration.md](../architecture/librechat-integration.md).
+The chat companion is implemented directly in `apps.chat` rather than by
+embedding a separate chat application: a message is persisted, the full
+session history plus a fixed system prompt is sent to whichever
+OpenAI-API-compatible provider is configured (`CHAT_LLM_*` settings —
+NVIDIA NIM by default), and the reply is persisted and returned in the
+same response. If the provider is unreachable, the user's message is
+still saved rather than the whole request failing. Full detail:
+[docs/architecture/ai-chat-integration.md](../architecture/ai-chat-integration.md).
+
+An earlier iteration of this project embedded LibreChat (a separate
+self-hosted chat application) via an OpenID Connect SSO bridge and a
+one-directional MongoDB sync into MindCare's own tables. That was later
+replaced with the direct integration described above — it removed a
+second Docker service, a second database, and an SSO/cookie-bridge
+surface area, in exchange for a simpler (non-pluggable-UI) chat
+experience.
 
 ## 6. Testing
 
-220 automated tests: 200 backend (pytest-django, 86% line coverage) and 20
-frontend (Vitest). Coverage spans unit tests (scoring algorithms, lexicon
-scoring, crisis detection, wellness-score math, recommendation matching),
-API/integration tests (CRUD plus cross-user ownership isolation for every
-user-scoped resource), authentication tests (registration through account
-lockout and password reset), and security tests (rate limiting, IDOR
-sweeps, JWT tampering, file upload validation).
+An automated test suite covering both backend (pytest-django, 90%+ line
+coverage) and frontend (Vitest). Coverage spans unit tests (scoring
+algorithms, lexicon scoring, crisis detection, wellness-score math,
+recommendation matching), API/integration tests (CRUD plus cross-user
+ownership isolation for every user-scoped resource), authentication tests
+(registration through account lockout and password reset), and security
+tests (rate limiting, IDOR sweeps, JWT tampering, file upload validation).
 
 ### 6.1 What running the suite actually found
 
@@ -197,10 +205,9 @@ Five real bugs surfaced by running tests, not by review:
 
 - Real Hugging Face model downloads and inference (both sentiment and
   emotion models), confirmed against hand-checked expected outputs.
-- The full OIDC SSO chain: JWT login → session-cookie bridge → `/o/authorize/`
-  → a real redirect to LibreChat's callback URL carrying a valid
-  authorization code, including confirming the exact CORS/credential
-  headers a browser would need.
+- A real chat completion round-trip against the configured LLM provider,
+  confirming the reply is persisted and returned in the same response
+  shape the frontend expects.
 - Wellness-score arithmetic, hand-verified against the live API response
   for a specific mood+sleep input.
 - Django's `makemigrations --check` (no drift) and full `migrate` against
@@ -220,8 +227,9 @@ Five real bugs surfaced by running tests, not by review:
   pictures and resource thumbnails.
 - A structured, append-only audit log for authentication events,
   permission denials, and crisis-detection triggers.
-- CORS restricted to an explicit origin allowlist (never a wildcard), with
-  credentials enabled only for the one endpoint that needs cookies.
+- CORS restricted to an explicit origin allowlist (never a wildcard);
+  credentials are disabled entirely, since every endpoint is bearer-token
+  (JWT) auth and none of them rely on cookies.
 
 ## 8. Limitations and future work
 
@@ -236,9 +244,9 @@ Five real bugs surfaced by running tests, not by review:
   sentiment data existing — a new user with no journal history falls back
   to the mood-only tier, by design, but this means personalization ramps
   up over the first few days of use rather than being immediate.
-- LibreChat's embedded iframe SSO has a documented browser-dependent
-  limitation around third-party cookies in local development (mitigated
-  in production via same-domain reverse-proxying).
+- The AI companion chat has no streaming — replies come back as one
+  complete response rather than token-by-token, which is simpler but
+  means the user waits for the full generation before seeing anything.
 - Real-time features (e.g., live notification push) use polling rather
   than WebSockets — a reasonable scope trade-off for this project, but a
   natural extension.
@@ -246,10 +254,10 @@ Five real bugs surfaced by running tests, not by review:
 ## 9. Conclusion
 
 MindCare AI demonstrates that a mental-health-adjacent platform can
-combine real machine learning, transparent rule-based safety logic, and a
-third-party system integration (LibreChat) into a single coherent,
-tested, and documented product — while being explicit throughout about
-what it is not (a diagnostic tool or a replacement for professional care).
+combine real machine learning, transparent rule-based safety logic, and an
+external AI provider integration into a single coherent, tested, and
+documented product — while being explicit throughout about what it is not
+(a diagnostic tool or a replacement for professional care).
 The emphasis throughout development was on verifying claims against
 running systems rather than assuming correctness from code review alone,
 which is reflected in the testing methodology (§6) and is, in the
@@ -269,6 +277,6 @@ author's view, the most transferable lesson from the project.
   University Press. (Self-Esteem Scale basis.)
 - Demszky, D. et al. (2020). GoEmotions: A Dataset of Fine-Grained
   Emotions. *ACL*. (`SamLowe/roberta-base-go_emotions` training data.)
-- Django REST Framework, React, Celery, LibreChat, and Hugging Face
-  Transformers project documentation (see each tool's official docs for
+- Django REST Framework, React, Celery, and Hugging Face Transformers
+  project documentation (see each tool's official docs for
   version-specific API references used throughout this codebase).

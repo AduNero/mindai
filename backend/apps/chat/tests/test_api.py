@@ -1,15 +1,16 @@
-import uuid
+from unittest.mock import patch
 
 import pytest
 from rest_framework import status
 
 from apps.chat.models import ChatMessage, ChatSession, MessageSender
+from apps.chat.services.llm import ChatServiceUnavailable
 
 pytestmark = pytest.mark.django_db
 
 
 def _create_session(user, title="A conversation"):
-    return ChatSession.objects.create(user=user, librechat_conversation_id=f"local-{uuid.uuid4()}", title=title)
+    return ChatSession.objects.create(user=user, title=title)
 
 
 class TestChatSessions:
@@ -40,6 +41,25 @@ class TestChatSessions:
 
         session.refresh_from_db()
         assert session.title == "I've been feeling anxious lately."
+
+    def test_send_message_persists_assistant_reply(self, auth_client, user):
+        session = _create_session(user)
+        response = auth_client.post(f"/api/v1/chat/sessions/{session.id}/send/", {"content": "Hi there"})
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["assistant_message"]["content"] == "Mocked assistant reply."
+        assert ChatMessage.objects.filter(session=session, sender=MessageSender.ASSISTANT).count() == 1
+
+    def test_send_message_survives_llm_provider_outage(self, auth_client, user):
+        session = _create_session(user)
+        with patch("apps.chat.views.get_chat_reply", side_effect=ChatServiceUnavailable("provider down")):
+            response = auth_client.post(f"/api/v1/chat/sessions/{session.id}/send/", {"content": "Hi there"})
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["assistant_message"] is None
+        assert response.data["error"] == "provider down"
+        # The user's message is still saved even though the reply failed.
+        assert ChatMessage.objects.filter(session=session, sender=MessageSender.USER).count() == 1
 
     def test_cannot_send_message_to_other_users_session(self, auth_client, other_user):
         session = _create_session(other_user)

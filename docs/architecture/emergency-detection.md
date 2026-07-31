@@ -33,7 +33,7 @@ each tagged with a `detection_source` so admins can see how a flag was raised:
 |---|---|---|
 | `assessment` | PHQ-9 item 9 ("thoughts that you would be better off dead, or of hurting yourself") — **any non-zero answer** is flagged, independent of total score, following standard clinical screening practice. | `apps.assessments.views.AssessmentSubmitView._flag_crisis_risk_if_needed` |
 | `journal` | Curated crisis-phrase matching against journal entry text, run asynchronously after every create/update. | `apps.ai_engine.services.risk_detection.detect_crisis_risk`, dispatched via `apps.ai_engine.tasks.analyze_content` |
-| `chat` | Same phrase matching against user-authored chat messages (both locally-sent and LibreChat-synced). | Same as above, dispatched from `apps.chat.views` and `apps.chat.services.librechat_sync` |
+| `chat` | Same phrase matching against user-authored chat messages. | Same as above, dispatched from `apps.chat.views` |
 
 ### Why phrase-matching instead of a learned classifier
 

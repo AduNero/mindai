@@ -21,7 +21,7 @@ tools to moderate content and monitor risk at an aggregate level.
 | Database       | MySQL 8 |
 | Auth           | JWT (djangorestframework-simplejwt), email verification, refresh tokens |
 | AI / NLP       | Hugging Face Transformers (sentiment & emotion classification), custom recommendation & risk-scoring logic |
-| AI Chat        | [LibreChat](https://github.com/danny-avila/LibreChat) (self-hosted, Dockerized, SSO-bridged) |
+| AI Chat        | Any OpenAI-API-compatible provider (default: NVIDIA NIM) via the `openai` Python client — see `apps.chat.services.llm` |
 | Async / Jobs   | Celery + Redis (reminders, AI analysis, email) |
 | Docs           | drf-spectacular (OpenAPI/Swagger) |
 | Deployment     | Docker, Docker Compose, Nginx reverse proxy |
@@ -41,7 +41,7 @@ mindcare-ai/
 │   │   ├── ai_engine/          sentiment, emotion, risk, recommendation services
 │   │   ├── assessments/        PHQ-9, GAD-7, stress, burnout, self-esteem
 │   │   ├── recommendations/    recommendation persistence & delivery
-│   │   ├── chat/               LibreChat session bridge, history, analysis
+│   │   ├── chat/               AI companion chat, history, analysis
 │   │   ├── appointments/       counseling session booking
 │   │   ├── notifications/      in-app + email notifications, reminders
 │   │   ├── resources/          articles, videos, podcasts, meditations
@@ -53,7 +53,6 @@ mindcare-ai/
 │   └── src/
 │       ├── pages/ components/ features/ api/ hooks/ context/
 │       ├── routes/ types/ utils/ styles/
-├── librechat/                 LibreChat config overrides + auth-bridge scripts
 ├── docker/                    Dockerfiles & service configs (backend, frontend, nginx, mysql)
 ├── docs/                       architecture, API, database, diagrams, manuals, reports, slides
 ├── docker-compose.yml
@@ -74,7 +73,7 @@ before the next begins.
 - [x] **Phase 3 — Backend (Django REST Framework APIs)**
 - [x] **Phase 4 — Frontend (React + TypeScript)**
 - [x] **Phase 5 — AI integration (sentiment, emotion, recommendations, risk)**
-- [x] **Phase 6 — LibreChat integration (Docker + SSO bridge)**
+- [x] **Phase 6 — AI chat companion (OpenAI-API-compatible provider)**
 - [x] **Phase 7 — Testing (unit, integration, API, auth, security)**
 - [x] **Phase 8 — Documentation (guides, diagrams, manuals, reports)**
 - [x] **Phase 9 — Docker Compose configuration**
@@ -95,7 +94,6 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:8000/api/v1
 - Swagger docs: http://localhost:8000/api/docs
-- LibreChat: http://localhost:3080
 
 For a production deployment, see the [Deployment Guide](docs/architecture/deployment-guide.md)
 and copy `.env.production.example` instead of `.env.example`.
@@ -127,7 +125,7 @@ and copy `.env.production.example` instead of `.env.example`.
 | [Sequence Diagrams](docs/architecture/sequence-diagrams.md) | Auth, journal→AI→risk, assessment crisis flag, appointment approval |
 | [Flowcharts](docs/architecture/flowcharts.md) | Emergency detection, recommendation engine, wellness score computation |
 | [Emergency Detection](docs/architecture/emergency-detection.md) | Crisis-detection design, ethics boundaries, what the system does and doesn't do |
-| [LibreChat Integration](docs/architecture/librechat-integration.md) | OIDC SSO bridge, conversation sync, known limitations |
+| [AI Chat Integration](docs/architecture/ai-chat-integration.md) | How the AI companion chat is wired up, provider configuration, system prompt |
 | [Database Schema](docs/database/schema.md) | Full ERD, table reference, normalization notes |
 | [API Documentation](docs/api/README.md) | Endpoint map, auth flow, response conventions — links to live Swagger/ReDoc |
 | [User Manual](docs/manuals/user-manual.md) | Feature walkthrough for end users |

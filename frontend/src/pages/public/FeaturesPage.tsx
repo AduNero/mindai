@@ -18,7 +18,7 @@ const FEATURE_GROUPS = [
   {
     title: "Get Support",
     items: [
-      { name: "AI Therapy Chat", description: "LibreChat-powered conversations with searchable history and export." },
+      { name: "AI Companion Chat", description: "AI-powered conversations with searchable history and export." },
       { name: "Recommendations", description: "Personalized suggestions that improve as more data is collected." },
       { name: "Counseling Appointments", description: "Book, reschedule, or cancel sessions with a counselor." },
       { name: "Crisis Resources", description: "Location-aware emergency contacts, always one tap away." },

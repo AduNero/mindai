@@ -57,7 +57,7 @@ Final-Year IT Project
 | Backend | Django REST Framework |
 | Database | MySQL 8 |
 | AI/NLP | Hugging Face Transformers |
-| Chat | LibreChat (SSO-integrated) |
+| Chat | Any OpenAI-API-compatible provider (default: NVIDIA NIM) |
 | Async | Celery + Redis |
 | Deployment | Docker Compose |
 
@@ -66,8 +66,8 @@ Final-Year IT Project
 ## System Architecture
 
 SPA → Django API → MySQL/Redis, with Celery workers handling AI inference
-and async jobs, and LibreChat integrated via OIDC (auth) + a
-one-directional MongoDB sync (conversation history).
+and async jobs. The AI companion chat is a direct API call from Django to
+an external OpenAI-API-compatible provider — no separate chat service.
 
 *(Paste the Mermaid diagram from `docs/architecture/architecture-diagram.md`
 here — most slide tools with a Mermaid plugin, or mermaid.live for a static export, render it directly.)*
@@ -117,12 +117,12 @@ here — most slide tools with a Mermaid plugin, or mermaid.live for a static ex
 
 ---
 
-## LibreChat Integration
+## AI Chat Integration
 
-- MindCare's backend **is** LibreChat's OpenID Connect identity provider
-- Log in once → the embedded chat is already authenticated, no second login
-- One-directional MongoDB sync mirrors LibreChat conversations into MindCare for search, export, and AI analysis
-- Verified end-to-end: real authorization code delivered to LibreChat's callback URL
+- Direct integration — no separate chat service to deploy or keep in sync
+- Message send → persist → call external LLM provider → persist reply → return both, in one request
+- Any OpenAI-API-compatible provider works (default: NVIDIA NIM) — swapping providers is a config change
+- Same sentiment/emotion/risk analysis pipeline as journal entries runs on every user message
 
 ---
 
@@ -145,11 +145,11 @@ here — most slide tools with a Mermaid plugin, or mermaid.live for a static ex
 
 ## Testing — By the Numbers
 
-- **220 automated tests**: 200 backend (pytest), 20 frontend (Vitest)
-- **86% backend line coverage**
+- **200+ automated tests**: backend (pytest) + frontend (Vitest)
+- **90%+ backend line coverage**
 - Real Hugging Face inference verified against actual model downloads
-- Full OIDC SSO flow verified end-to-end against a running server
-- 5 real bugs caught and fixed *by running tests*, not just by writing them
+- Real chat completion round-trip verified against the configured LLM provider
+- Several real bugs caught and fixed *by running tests*, not just by writing them
 
 ---
 
@@ -158,7 +158,7 @@ here — most slide tools with a Mermaid plugin, or mermaid.live for a static ex
 | Challenge | Solution |
 |---|---|
 | GoEmotions' 28 labels vs. the spec's 8 emotions | Chose a model whose labels are a superset, filtered + renormalized |
-| Iframe SSO + browser third-party cookie restrictions | Documented limitation; same-domain reverse-proxy in production |
+| A separate chat service added real operational weight (2nd DB, SSO bridge) for little benefit | Replaced with a direct API call from Django to an external LLM provider |
 | DRF couldn't auto-validate a uniqueness constraint | Explicit check at the view layer, caught by testing |
 | Rate-limit state leaking between tests | Cache-clearing autouse fixture |
 

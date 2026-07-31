@@ -193,7 +193,6 @@ erDiagram
     CHAT_SESSIONS {
         UUID id PK
         UUID user_id FK
-        string librechat_conversation_id UK
         string title
         bool is_archived
     }
@@ -201,7 +200,6 @@ erDiagram
     CHAT_MESSAGES {
         UUID id PK
         UUID session_id FK
-        string librechat_message_id UK
         string sender "user|assistant"
         text content
     }
@@ -279,8 +277,8 @@ erDiagram
 | `mood_predictions` | ai_engine | Forward-looking mood forecast |
 | `recommendation_templates` | recommendations | Admin-managed recommendation catalogue |
 | `recommendations` | recommendations | Recommendation instances generated for a user |
-| `chat_sessions` | chat | LibreChat conversation bridge record |
-| `chat_messages` | chat | Local mirror of LibreChat messages (for search/analysis) |
+| `chat_sessions` | chat | AI companion conversation |
+| `chat_messages` | chat | Messages within a chat session (user + AI companion turns) |
 | `appointments` | appointments | Counseling session bookings |
 | `notification_preferences` | notifications | Per-user reminder opt-ins + channel prefs |
 | `notifications` | notifications | In-app/email notification instances |

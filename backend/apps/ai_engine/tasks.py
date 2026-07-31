@@ -154,7 +154,7 @@ def generate_mood_prediction(user_id: str):
 @shared_task
 def daily_wellness_and_prediction_sweep():
     """
-    Runs once a day (see setup_periodic_tasks): recomputes yesterday's final
+    Runs once a day (see setup_ai_periodic_tasks): recomputes yesterday's final
     wellness score and generates a fresh mood prediction for every active user.
     """
 

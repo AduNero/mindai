@@ -48,9 +48,4 @@ export const authApi = {
   listSessions: () => apiClient.get<UserSession[]>("/auth/sessions/"),
 
   revokeSession: (id: string) => apiClient.delete(`/auth/sessions/${id}/`),
-
-  // Bridges JWT auth to a Django session cookie so the browser is
-  // recognized when LibreChat's embedded OpenID flow redirects it to
-  // MindCare's OIDC /o/authorize/ endpoint. See apps.users.views.EstablishOIDCSessionView.
-  establishLibreChatSession: () => apiClient.post<{ message: string }>("/auth/librechat-session/"),
 };

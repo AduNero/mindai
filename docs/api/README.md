@@ -30,10 +30,6 @@ new one. See `apps.users.views` and
 [sequence-diagrams.md](../architecture/sequence-diagrams.md) for the full
 auth flow including account lockout, email verification, and password reset.
 
-One endpoint is the exception: `POST /api/v1/auth/librechat-session/` is
-JWT-authenticated but *also* sets a session cookie — see
-[librechat-integration.md](../architecture/librechat-integration.md).
-
 ## Response envelope
 
 Errors follow a consistent shape (`apps.common.exceptions.custom_exception_handler`):
@@ -73,7 +69,7 @@ of it.
 
 | Prefix | App | Covers |
 |---|---|---|
-| `/auth/` | `apps.users` | Register, login, refresh, logout, email verification, password reset, sessions, LibreChat session bridge |
+| `/auth/` | `apps.users` | Register, login, refresh, logout, email verification, password reset, sessions |
 | `/users/` | `apps.users` | Profile, avatar upload, counselor directory, admin user/counselor management |
 | `/moods/` | `apps.moods` | Mood entry CRUD, current/weekly/monthly series, mood choices |
 | `/journals/` | `apps.journals` | Journal entry CRUD, tags, stats, moderation reports |
@@ -81,13 +77,12 @@ of it.
 | `/assessments/` | `apps.assessments` | Instrument list/detail, submission, results history |
 | `/ai/` | `apps.ai_engine` | Sentiment/emotion analysis lookup, wellness score, mood predictions, risk assessments |
 | `/recommendations/` | `apps.recommendations` | Recommendation list/update/generate, admin template management |
-| `/chat/` | `apps.chat` | Session CRUD, messages, search, export, LibreChat sync |
+| `/chat/` | `apps.chat` | Session CRUD, send message (persists + generates AI reply), search, export |
 | `/appointments/` | `apps.appointments` | Booking, cancel, reschedule, admin approve/reject |
 | `/notifications/` | `apps.notifications` | List, unread count, mark read, preferences |
 | `/resources/` | `apps.resources` | Resource browsing, categories, emergency resources, admin CRUD |
 | `/admin-panel/` | `apps.admin_panel` | Dashboard stats, action logs, journal moderation, risk alerts, reports |
 | `/audit/` | `apps.audit` | Security audit log (admin-only) |
-| `/o/` | `oauth2_provider` | OIDC provider endpoints (LibreChat SSO) — not REST/JSON, standard OIDC |
 
 ## Rate limiting
 
@@ -111,7 +106,5 @@ authorization layer that gates them instead.
   user-scoped resources (moods, journals, appointments, chat, wellness) so users can
   only read/modify their own data.
 - **`IsAdmin`**: admin-only endpoints (`/admin-panel/`, `/audit/`, user/counselor management).
-- **`skip_authorization` OIDC client**: LibreChat is the only registered OIDC client; see
-  [librechat-integration.md](../architecture/librechat-integration.md).
 
 See `apps.common.permissions` for the permission class implementations.

@@ -4,6 +4,38 @@ All notable changes to MindCare AI are documented here. This project was
 built incrementally in phases as a final-year IT project; each phase below
 corresponds to a milestone in that build.
 
+## [Unreleased]
+
+### AI chat re-architecture — LibreChat removed
+- Replaced the LibreChat-based chat integration (Phase 6) with a direct
+  integration: `apps.chat.services.llm` calls any OpenAI-API-compatible
+  provider (default: NVIDIA NIM) via the `openai` Python client. See
+  `docs/architecture/ai-chat-integration.md`.
+- Removed: the `librechat`/`librechat_mongo` Docker services and the
+  `librechat/` config directory, the dev-only `oidc-proxy` TLS proxy and
+  `docker/oidc-proxy/`, MindCare's OIDC provider role
+  (`django-oauth-toolkit`, `apps.users.oidc`, `EstablishOIDCSessionView`,
+  the `generate_oidc_rsa_key`/`setup_librechat_oidc_client` management
+  commands), the `pymongo`/`cryptography`/`django-oauth-toolkit`
+  dependencies, and the `librechat_conversation_id`/`librechat_message_id`
+  columns on `ChatSession`/`ChatMessage`.
+- `ChatSessionViewSet.send` now generates and persists the AI reply
+  synchronously in the same request that saves the user's message,
+  instead of relying on an external sync job; the frontend's "Live Chat"
+  iframe tab and LibreChat-history-sync UI were removed accordingly.
+- Fixed two bugs found while making this change: `config/settings/base.py`
+  was loading the repo-root `.env` even under the test settings module,
+  so a developer's local `DEFAULT_CRISIS_COUNTRY` (or any other .env
+  override) could silently break "hermetic" test assertions; and
+  `apps.ai_engine`/`apps.notifications` both defined a management command
+  named `setup_periodic_tasks`, so only one was ever actually reachable —
+  `ai_engine`'s was renamed to `setup_ai_periodic_tasks`.
+- `production.py` also gained `SECURE_PROXY_SSL_HEADER` (nginx already
+  sends `X-Forwarded-Proto`; this was previously untrusted, so
+  `request.is_secure()` was silently `False` behind the reverse proxy even
+  over real HTTPS) and `CORS_ALLOW_CREDENTIALS` was reverted to `False`
+  (nothing needs cookies now that the OIDC session bridge is gone).
+
 ## [1.0.0] — Initial release
 
 ### Phase 1 — Folder structure & project scaffolding

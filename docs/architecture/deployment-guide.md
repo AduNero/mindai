@@ -13,43 +13,22 @@ in `.env`). Compared to development, this enables:
 
 - `DEBUG=False`, strict `ALLOWED_HOSTS`
 - HTTPS enforcement (`SECURE_SSL_REDIRECT`), HSTS, secure/HttpOnly cookies
-- `SESSION_COOKIE_SAMESITE="None"` (required for the LibreChat iframe SSO
-  bridge to work cross-site over HTTPS — see
-  [librechat-integration.md](librechat-integration.md))
 - WhiteNoise for static file serving (or serve `staticfiles/` via Nginx directly — see below)
 
 **Secrets that must be real, unique values in production** (never reuse
 the `.env.example` placeholders): `DJANGO_SECRET_KEY`, `JWT_SIGNING_KEY`,
-`OIDC_RSA_PRIVATE_KEY`, `MYSQL_PASSWORD`/`MYSQL_ROOT_PASSWORD`,
-`LIBRECHAT_OIDC_CLIENT_SECRET`, `LIBRECHAT_JWT_SECRET`,
-`LIBRECHAT_JWT_REFRESH_SECRET`, `LIBRECHAT_CREDS_KEY`/`LIBRECHAT_CREDS_IV`.
+`MYSQL_PASSWORD`/`MYSQL_ROOT_PASSWORD`, `CHAT_LLM_API_KEY`.
 Manage these via your platform's secret store (Docker secrets, a cloud
 provider's secrets manager, etc.) rather than a committed `.env` file.
 
 ## 2. Domain and reverse-proxy topology
 
-**Recommended**: put the frontend/API and LibreChat on **subdomains of the
-same parent domain** — this avoids the third-party-cookie limitation
-discussed in [librechat-integration.md](librechat-integration.md) without
-depending on LibreChat supporting being served under a URL subpath (not
-guaranteed for every SPA without explicit base-path build support).
-Subdomains of one parent domain are still the same *site* for SameSite
-cookie purposes (the boundary is the registrable domain, not the
-subdomain), so a cookie scoped to `Domain=mindcare.example.com` is sent on
-requests to either subdomain:
-
-```
-https://app.mindcare.example.com/    → frontend (static build) + backend under /api/, /o/, /admin/
-https://chat.mindcare.example.com/   → librechat
-```
-
-No frontend code changes are needed either way — `VITE_LIBRECHAT_URL`
-(the iframe's `src` in `AIChatPage.tsx`) is just an env var; point it at
-whichever URL you route LibreChat to. See `docker/nginx/` for the
-reverse-proxy config implementing this (Phase
-9). Obtain TLS certificates via Let's Encrypt/Certbot or your cloud
-provider's managed certificates — this project does not include a
-particular ACME client, since that choice is host-environment-specific.
+A single domain in front of the frontend + API is all this needs — see
+`docker/nginx/nginx.conf` for the reverse-proxy config
+(`app.mindcare.example.com` by default; swap in your real domain). Obtain
+TLS certificates via Let's Encrypt/Certbot or your cloud provider's
+managed certificates — this project does not include a particular ACME
+client, since that choice is host-environment-specific.
 
 ## 3. Database
 
@@ -78,10 +57,10 @@ failure:
 - **Bare metal/VM**: run both under `systemd` or a process supervisor
   (`supervisord`) rather than `nohup`, so they restart automatically.
 
-Re-run `python manage.py setup_periodic_tasks` (once, per app that defines
-one — `notifications`, `ai_engine`, `chat`) after each fresh deployment of
-a new database, since periodic task schedules are stored in the database
-(`django_celery_beat`), not in code.
+Re-run `python manage.py setup_periodic_tasks` (notifications app) and
+`python manage.py setup_ai_periodic_tasks` (ai_engine app) after each
+fresh deployment of a new database, since periodic task schedules are
+stored in the database (`django_celery_beat`), not in code.
 
 ## 5. AI worker sizing
 
@@ -94,17 +73,12 @@ notifications). This project ships the simpler single-worker setup;
 splitting queues is a straightforward Celery routing change
 (`task_routes` in `config/settings/base.py`) if you need it.
 
-## 6. LibreChat
+## 6. AI chat companion
 
-- Set real `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/etc. in
-  `librechat/config/librechat.env` — without a model provider configured,
-  the chat UI loads but can't generate responses.
-- `librechat_mongo` needs the same backup discipline as MySQL if
-  conversation history matters to your deployment.
-- Confirm `OPENID_ISSUER` in `librechat.env` points at the *publicly
-  reachable* URL for `/o` (not `http://backend:8000/o`, which only
-  resolves inside the Docker network) if LibreChat and MindCare's backend
-  aren't on the same Docker network in your topology.
+Set a real `CHAT_LLM_API_KEY` (and `CHAT_LLM_BASE_URL`/`CHAT_LLM_MODEL` if
+not using the NVIDIA NIM default) — without it, the chat companion still
+loads but every message gets an "AI companion is temporarily unavailable"
+error instead of a reply. See [AI Chat Integration](ai-chat-integration.md).
 
 ## 7. Observability
 
@@ -127,16 +101,14 @@ vendor), but the codebase is structured to make adding it straightforward:
 [ ] .env copied from .env.production.example, all secrets production-unique
 [ ] CI green on the commit being deployed (.github/workflows/ci.yml)
 [ ] DJANGO_SETTINGS_MODULE=config.settings.production
-[ ] SESSION_COOKIE_SAMESITE=None only paired with real HTTPS
 [ ] docker compose exec backend python manage.py migrate --noinput
 [ ] docker compose exec backend python manage.py collectstatic --noinput
-[ ] docker compose exec backend python manage.py setup_periodic_tasks (each app)
-[ ] docker compose exec backend python manage.py setup_librechat_oidc_client
-[ ] OIDC_RSA_PRIVATE_KEY set and backend/celery restarted after
+[ ] docker compose exec backend python manage.py setup_periodic_tasks
+[ ] docker compose exec backend python manage.py setup_ai_periodic_tasks
 [ ] TLS certificates valid and auto-renewing
 [ ] Database backups scheduled and tested — backend/scripts/backup_db.sh /
     restore_db.sh (restore, not just backup)
-[ ] At least one LLM provider key set in librechat.env
+[ ] CHAT_LLM_API_KEY set to a real provider key
 [ ] Emergency resources seeded for every country you expect users from
 [ ] backend/scripts/smoke_test.sh BASE_URL=https://app.<domain> passes
     against the freshly deployed stack

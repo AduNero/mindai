@@ -7,6 +7,8 @@ override only what differs.
 from datetime import timedelta
 from pathlib import Path
 
+import os
+
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -18,9 +20,14 @@ env = environ.Env(
 )
 # Local dev convenience: read the repo-root .env if present. In Docker,
 # environment variables are already injected by docker-compose, so a
-# missing file here is not an error.
+# missing file here is not an error. Skipped under the test settings
+# module — the test suite is meant to be hermetic (config/settings/test.py
+# hardcodes its own DB/email/etc regardless), and a developer's local .env
+# (e.g. a non-default DEFAULT_CRISIS_COUNTRY) silently overriding a
+# Python-level default that tests assert against would make results depend
+# on whoever's machine runs them.
 env_file = REPO_ROOT / ".env"
-if env_file.exists():
+if env_file.exists() and os.environ.get("DJANGO_SETTINGS_MODULE") != "config.settings.test":
     environ.Env.read_env(str(env_file))
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key-change-me")
@@ -48,8 +55,6 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "django_filters",
     "django_celery_beat",
-    # OIDC provider — MindCare acts as LibreChat's SSO identity provider (Phase 6).
-    "oauth2_provider",
 ]
 
 LOCAL_APPS = [
@@ -204,38 +209,6 @@ JWT_REMEMBER_ME_REFRESH_LIFETIME = timedelta(days=30)
 ACCOUNT_LOCKOUT_THRESHOLD = env.int("ACCOUNT_LOCKOUT_THRESHOLD", default=5)
 ACCOUNT_LOCKOUT_DURATION_MINUTES = env.int("ACCOUNT_LOCKOUT_DURATION_MINUTES", default=15)
 
-# --- OIDC provider (django-oauth-toolkit) — MindCare as LibreChat's SSO IdP ---
-# LibreChat is configured (via its own OPENID_* env vars) to trust this
-# server as an OpenID Connect provider, so a user who is already logged
-# into MindCare can SSO into the embedded LibreChat UI without a second
-# login. See apps.users.oidc and apps/users/management/commands/setup_librechat_oidc_client.py.
-OAUTH2_PROVIDER = {
-    "OIDC_ENABLED": True,
-    # .env stores this with literal \n escapes (see generate_oidc_rsa_key
-    # management command) since real newlines don't survive a single .env line.
-    "OIDC_RSA_PRIVATE_KEY": env("OIDC_RSA_PRIVATE_KEY", default="").replace("\\n", "\n"),
-    "OAUTH2_VALIDATOR_CLASS": "apps.users.oidc.MindCareOAuth2Validator",
-    # Hardcodes the issuer used in the discovery document and id_token `iss`
-    # claim instead of deriving it from the request. Needed whenever the
-    # externally-visible scheme/host differs from what the backend process
-    # itself sees (behind a TLS-terminating reverse proxy) — avoids relying
-    # on X-Forwarded-Proto trust for something as security-sensitive as the
-    # OIDC issuer identity. Leave unset to fall back to request-derivation.
-    "OIDC_ISS_ENDPOINT": env("OIDC_ISS_ENDPOINT", default=""),
-    "SCOPES": {
-        "openid": "OpenID Connect scope",
-        "profile": "Access to your name",
-        "email": "Access to your email address",
-    },
-    "PKCE_REQUIRED": False,
-    "ACCESS_TOKEN_EXPIRE_SECONDS": 3600,
-}
-LIBRECHAT_OIDC_CLIENT_ID = env("LIBRECHAT_OIDC_CLIENT_ID", default="librechat")
-LIBRECHAT_OIDC_CLIENT_SECRET = env("LIBRECHAT_OIDC_CLIENT_SECRET", default="")
-LIBRECHAT_OIDC_REDIRECT_URI = env(
-    "LIBRECHAT_OIDC_REDIRECT_URI", default=f"{env('LIBRECHAT_URL', default='http://localhost:3080')}/oauth/openid/callback"
-)
-
 # --- API documentation (Swagger / OpenAPI) ---
 SPECTACULAR_SETTINGS = {
     "TITLE": "MindCare AI API",
@@ -252,23 +225,11 @@ SPECTACULAR_SETTINGS = {
 
 # --- CORS / CSRF ---
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
-# True (not False) because apps.users.views.EstablishOIDCSessionView sets a
-# session cookie that the frontend's cross-origin XHR must be able to
-# receive/send (see api/client.ts's withCredentials) — everything else on
-# this API is bearer-token auth and doesn't need cookies at all. Safe with
-# CORS_ALLOW_CREDENTIALS=True only because CORS_ALLOWED_ORIGINS is an
-# explicit list, never "*".
-CORS_ALLOW_CREDENTIALS = True
+# The API is bearer-token (JWT) auth throughout, so cross-origin requests
+# never need to carry cookies — only same-origin use of the Django admin
+# relies on the session cookie at all.
+CORS_ALLOW_CREDENTIALS = False
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173"])
-
-# The LibreChat iframe's own top-level navigations (its OpenID auto-redirect
-# to /o/authorize/) happen inside a nested browsing context, which most
-# browsers treat as third-party even though everything is on localhost in
-# dev — SameSite=Lax cookies are commonly still sent for localhost across
-# ports, but production.py switches to None+Secure to guarantee it over
-# HTTPS. The most robust fix either way is deploying LibreChat behind the
-# same reverse-proxy domain as the frontend (see docker/nginx, Phase 9).
-SESSION_COOKIE_SAMESITE = "Lax"
 
 # --- Email ---
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
@@ -307,10 +268,11 @@ HF_DEVICE = env("HF_DEVICE", default="cpu")
 # rather than trusting a low-confidence positive/negative call.
 HF_SENTIMENT_NEUTRAL_THRESHOLD = env.float("HF_SENTIMENT_NEUTRAL_THRESHOLD", default=0.6)
 
-# --- LibreChat integration (see apps.chat, Phase 6) ---
-LIBRECHAT_URL = env("LIBRECHAT_URL", default="http://localhost:3080")
-LIBRECHAT_API_KEY = env("LIBRECHAT_API_KEY", default="")
-LIBRECHAT_JWT_SECRET = env("LIBRECHAT_JWT_SECRET", default="")
+# --- AI chat companion (see apps.chat.services.llm) ---
+# Any OpenAI-API-compatible provider works — default is NVIDIA NIM.
+CHAT_LLM_API_KEY = env("CHAT_LLM_API_KEY", default="")
+CHAT_LLM_BASE_URL = env("CHAT_LLM_BASE_URL", default="https://integrate.api.nvidia.com/v1")
+CHAT_LLM_MODEL = env("CHAT_LLM_MODEL", default="nvidia/llama-3.3-nemotron-super-49b-v1")
 
 # --- Crisis / emergency resources ---
 DEFAULT_CRISIS_COUNTRY = env("DEFAULT_CRISIS_COUNTRY", default="US")

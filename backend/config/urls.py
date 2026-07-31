@@ -34,9 +34,6 @@ urlpatterns = [
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    # OIDC provider endpoints (/o/authorize/, /o/token/, /o/.well-known/openid-configuration/,
-    # /o/.well-known/jwks.json, ...) — LibreChat's SSO IdP. See apps.users.oidc.
-    path("o/", include("oauth2_provider.urls", namespace="oauth2_provider")),
 ]
 
 if settings.DEBUG:

@@ -5,15 +5,9 @@ from apps.common.models import BaseModel
 
 
 class ChatSession(BaseModel):
-    """
-    Mirrors a LibreChat conversation. LibreChat owns the actual message
-    content/streaming (its own MongoDB store); this table is the bridge
-    record MindCare uses to list/search/export sessions, attribute
-    sentiment analysis, and enforce that a session belongs to its user.
-    """
+    """A conversation with the AI companion — see apps.chat.services.llm."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="chat_sessions")
-    librechat_conversation_id = models.CharField(max_length=100, unique=True, db_index=True)
     title = models.CharField(max_length=255, help_text="Auto-generated from the first exchange, editable by the user.")
     started_at = models.DateTimeField(auto_now_add=True)
     last_message_at = models.DateTimeField(null=True, blank=True)
@@ -34,14 +28,9 @@ class MessageSender(models.TextChoices):
 
 
 class ChatMessage(BaseModel):
-    """
-    Local mirror of a LibreChat message, synced via webhook/poll (Phase 6),
-    kept so MindCare can run sentiment/emotion/risk analysis and full-text
-    search without querying LibreChat's store on every request.
-    """
+    """A single turn in a ChatSession — either the user's message or the AI companion's reply."""
 
     session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name="messages")
-    librechat_message_id = models.CharField(max_length=100, unique=True, null=True, blank=True, db_index=True)
     sender = models.CharField(max_length=10, choices=MessageSender.choices)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)

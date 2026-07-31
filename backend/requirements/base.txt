@@ -5,12 +5,9 @@ django-environ==0.11.2
 
 # Auth
 djangorestframework-simplejwt==5.3.1
-# OIDC provider — lets MindCare act as LibreChat's SSO identity provider (see apps.chat / Phase 6)
-django-oauth-toolkit==2.4.0
-cryptography>=42
 
-# LibreChat conversation sync (reads LibreChat's own MongoDB store, see apps.chat.services.librechat_sync)
-pymongo==4.8.0
+# AI chat companion — OpenAI-API-compatible client (see apps.chat.services.llm)
+openai>=1.50
 
 # Database
 mysqlclient==2.2.4

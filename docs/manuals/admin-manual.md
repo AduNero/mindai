@@ -108,5 +108,6 @@ full sequence), not from the UI:
 python manage.py seed_assessments          # PHQ-9, GAD-7, Stress, Burnout, Self-esteem question banks
 python manage.py seed_recommendations       # Starter recommendation template catalogue
 python manage.py seed_emergency_resources   # Starter crisis hotline set (extend via the UI)
-python manage.py setup_periodic_tasks       # Run once per app that defines one: notifications, ai_engine, chat
+python manage.py setup_periodic_tasks       # notifications app
+python manage.py setup_ai_periodic_tasks    # ai_engine app
 ```

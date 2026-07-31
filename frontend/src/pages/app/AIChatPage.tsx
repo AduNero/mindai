@@ -1,105 +1,31 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-import { authApi, chatApi } from "@/api";
-import { EmptyState } from "@/components/common/EmptyState";
+import { chatApi } from "@/api";
 import { FullPageSpinner } from "@/components/common/Spinner";
+import { DownloadIcon, PlusIcon, SearchIcon, SendIcon, SparkleIcon, TrashIcon } from "@/components/common/icons";
 import { useToast } from "@/context/ToastContext";
 import type { ChatMessage, ChatSession } from "@/types";
 import { cn } from "@/utils/cn";
 
-type Tab = "live" | "history";
+const SUGGESTED_PROMPTS = [
+  "I've been feeling anxious lately",
+  "Tips for better sleep",
+  "How can I manage exam stress?",
+  "I just want to talk",
+];
 
+/**
+ * AI companion chat. Messages are sent to the backend
+ * (POST /chat/sessions/:id/send/), which persists the user's message,
+ * generates a reply via apps.chat.services.llm (an OpenAI-API-compatible
+ * provider — NVIDIA NIM by default), and returns both.
+ */
 export default function AIChatPage() {
-  const [tab, setTab] = useState<Tab>("live");
-
-  return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col gap-4">
-      <div className="flex gap-1 self-start rounded-lg bg-gray-100 p-1 text-sm dark:bg-gray-800">
-        {(["live", "history"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={cn(
-              "rounded-md px-4 py-1.5 font-medium capitalize transition-colors",
-              tab === t ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white" : "text-gray-500",
-            )}
-          >
-            {t === "live" ? "Live Chat" : "History"}
-          </button>
-        ))}
-      </div>
-
-      {tab === "live" ? <LiveChatPanel /> : <ChatHistoryPanel />}
-    </div>
-  );
-}
-
-/**
- * Embeds LibreChat directly. The user is already logged into MindCare (JWT);
- * `establishLibreChatSession` bridges that to a Django session cookie so
- * when LibreChat's OpenID strategy (OPENID_AUTO_REDIRECT=true) redirects
- * this iframe to MindCare's /o/authorize/ endpoint, it's recognized without
- * a second login. See apps.users.oidc / docs/architecture/librechat-integration.md.
- */
-function LiveChatPanel() {
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    authApi
-      .establishLibreChatSession()
-      .then(() => {
-        if (!cancelled) setReady(true);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (error) {
-    return (
-      <div className="card flex-1">
-        <EmptyState
-          icon="⚠️"
-          title="Couldn't connect to Live Chat"
-          description="We weren't able to establish your session. Try refreshing, or use the History tab in the meantime."
-        />
-      </div>
-    );
-  }
-
-  if (!ready) {
-    return (
-      <div className="card flex flex-1 items-center justify-center">
-        <FullPageSpinner />
-      </div>
-    );
-  }
-
-  return (
-    <iframe
-      title="MindCare AI Therapy Chat"
-      src={import.meta.env.VITE_LIBRECHAT_URL}
-      className="flex-1 rounded-2xl border border-gray-200 dark:border-gray-800"
-      allow="clipboard-write"
-    />
-  );
-}
-
-/**
- * Native session browser — search/export/list backed by ChatSession/
- * ChatMessage, which mirrors both locally-sent messages (send()) and
- * LibreChat-synced ones (apps.chat.services.librechat_sync). Doubles as a
- * lightweight fallback chat when LibreChat itself isn't reachable.
- */
-function ChatHistoryPanel() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -108,6 +34,7 @@ function ChatHistoryPanel() {
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const loadSessions = async () => {
     const { data } = await chatApi.listSessions();
@@ -126,7 +53,14 @@ function ChatHistoryPanel() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, sending]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [draft]);
 
   const selectSession = async (id: string) => {
     setActiveId(id);
@@ -135,35 +69,35 @@ function ChatHistoryPanel() {
     setActiveTitle(data.title);
   };
 
-  const handleSyncNow = async () => {
-    setSyncing(true);
-    try {
-      const { data } = await chatApi.syncLibreChatNow();
-      await loadSessions();
-      showToast(
-        data.synced_conversations > 0
-          ? `Synced ${data.synced_conversations} conversation(s) from Live Chat.`
-          : "No new Live Chat conversations to sync.",
-        "success",
-      );
-    } catch {
-      showToast("Couldn't sync Live Chat history right now.", "error");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const handleNewSession = async () => {
     const { data } = await chatApi.createSession("New conversation");
     setSessions((prev) => [data, ...prev]);
     setActiveId(data.id);
     setMessages([]);
     setActiveTitle(data.title);
+    setDraft("");
+    textareaRef.current?.focus();
   };
 
-  const handleSend = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!draft.trim()) return;
+  const handleDeleteSession = async (e: MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this conversation? This can't be undone.")) return;
+    await chatApi.deleteSession(id);
+    const remaining = sessions.filter((s) => s.id !== id);
+    setSessions(remaining);
+    if (activeId === id) {
+      if (remaining.length > 0) {
+        selectSession(remaining[0].id);
+      } else {
+        setActiveId(null);
+        setMessages([]);
+        setActiveTitle("");
+      }
+    }
+  };
+
+  const sendContent = async (content: string) => {
+    if (!content.trim() || sending) return;
 
     let sessionId = activeId;
     if (!sessionId) {
@@ -173,20 +107,36 @@ function ChatHistoryPanel() {
       setActiveId(sessionId);
     }
 
+    setDraft("");
     setSending(true);
     try {
-      const { data } = await chatApi.sendMessage(sessionId, draft);
-      setMessages((prev) => [...prev, data]);
-      setDraft("");
+      const { data } = await chatApi.sendMessage(sessionId, content);
+      setMessages((prev) => [...prev, data.user_message, ...(data.assistant_message ? [data.assistant_message] : [])]);
+      if (data.error) {
+        showToast("The AI companion is temporarily unavailable — your message was saved.", "error");
+      }
       const refreshed = await chatApi.getSession(sessionId);
       setActiveTitle(refreshed.data.title);
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, title: refreshed.data.title, message_count: refreshed.data.message_count } : s)),
       );
     } catch {
+      setDraft(content);
       showToast("Couldn't send your message — please try again.", "error");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSend = async (e: FormEvent) => {
+    e.preventDefault();
+    await sendContent(draft);
+  };
+
+  const handleComposerKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendContent(draft);
     }
   };
 
@@ -215,91 +165,226 @@ function ChatHistoryPanel() {
   if (loading) return <FullPageSpinner />;
 
   return (
-    <div className="grid flex-1 grid-cols-1 gap-4 overflow-hidden md:grid-cols-[280px_1fr]">
-      <div className="card flex flex-col overflow-hidden p-3">
-        <div className="mb-3 flex gap-2">
-          <button onClick={handleNewSession} className="btn-primary flex-1 text-sm">
-            + New
-          </button>
-          <button onClick={handleSyncNow} disabled={syncing} className="btn-outline text-sm" title="Pull latest Live Chat history">
-            {syncing ? "..." : "Sync"}
+    <div className="grid h-[calc(100vh-8.5rem)] grid-cols-1 gap-4 overflow-hidden md:grid-cols-[300px_1fr]">
+      {/* Sidebar */}
+      <div className="card flex flex-col overflow-hidden !p-0">
+        <div className="border-b border-gray-100 p-4 dark:border-gray-800">
+          <div className="mb-3 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white">
+              <SparkleIcon className="h-4 w-4" />
+            </div>
+            <h1 className="font-semibold text-gray-900 dark:text-gray-100">AI Companion</h1>
+          </div>
+          <button
+            onClick={handleNewSession}
+            className="btn-primary w-full text-sm shadow-sm"
+          >
+            <PlusIcon className="h-4 w-4" />
+            New conversation
           </button>
         </div>
-        <input
-          className="input mb-3"
-          placeholder="Search chats..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-        />
-        <div className="flex-1 space-y-1 overflow-y-auto">
+
+        <div className="border-b border-gray-100 p-3 dark:border-gray-800">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <input
+              className="input pl-9"
+              placeholder="Search conversations..."
+              value={search}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 space-y-1 overflow-y-auto p-2">
           {sessions.length === 0 ? (
-            <p className="px-2 py-4 text-center text-xs text-gray-400">No conversations yet.</p>
+            <p className="px-3 py-6 text-center text-xs text-gray-400">No conversations yet — start one above.</p>
           ) : (
             sessions.map((s) => (
               <button
                 key={s.id}
                 onClick={() => selectSession(s.id)}
                 className={cn(
-                  "block w-full truncate rounded-xl px-3 py-2 text-left text-sm",
+                  "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
                   s.id === activeId
                     ? "bg-brand-50 font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
                 )}
               >
-                {s.title || "New conversation"}
+                <span className="truncate">{s.title || "New conversation"}</span>
+                <TrashIcon
+                  onClick={(e) => handleDeleteSession(e, s.id)}
+                  className="h-3.5 w-3.5 shrink-0 text-gray-400 opacity-0 transition-opacity hover:text-red-500 group-hover:opacity-100"
+                />
               </button>
             ))
           )}
         </div>
       </div>
 
-      <div className="card flex flex-col overflow-hidden">
+      {/* Main pane */}
+      <div className="card flex flex-col overflow-hidden !p-0">
         {!activeId ? (
-          <EmptyState icon="💬" title="No conversation selected" description="Pick one from the list, or start a new one." />
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/20">
+              <SparkleIcon className="h-8 w-8" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How are you feeling today?</h2>
+              <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+                Talk to your AI companion — it's here to listen, not to judge. Not a substitute for professional care.
+              </p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {SUGGESTED_PROMPTS.map((prompt) => (
+                <button key={prompt} onClick={() => sendContent(prompt)} className="btn-outline text-xs">
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
-              <h2 className="truncate font-semibold text-gray-900 dark:text-gray-100">{activeTitle}</h2>
-              <button onClick={handleExport} className="btn-outline text-xs">
+            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
+              <div className="flex items-center gap-3 overflow-hidden">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white">
+                  <SparkleIcon className="h-4 w-4" />
+                </div>
+                <div className="overflow-hidden">
+                  <h2 className="truncate font-semibold text-gray-900 dark:text-gray-100">{activeTitle || "New conversation"}</h2>
+                  <p className="text-xs text-gray-400">AI companion &middot; always here to listen</p>
+                </div>
+              </div>
+              <button onClick={handleExport} className="btn-outline shrink-0 text-xs" title="Export conversation">
+                <DownloadIcon className="h-3.5 w-3.5" />
                 Export
               </button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto py-4">
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               {messages.length === 0 && (
-                <p className="text-center text-sm text-gray-400">No messages in this conversation yet.</p>
-              )}
-              {messages.map((m) => (
-                <div key={m.id} className={cn("flex", m.sender === "user" ? "justify-end" : "justify-start")}>
-                  <div
-                    className={cn(
-                      "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm",
-                      m.sender === "user"
-                        ? "bg-brand-600 text-white"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
-                    )}
-                  >
-                    {m.content}
+                <div className="flex flex-col items-center gap-4 py-10 text-center">
+                  <p className="text-sm text-gray-400">No messages yet — say hello.</p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {SUGGESTED_PROMPTS.map((prompt) => (
+                      <button key={prompt} onClick={() => sendContent(prompt)} className="btn-outline text-xs">
+                        {prompt}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+              <AnimatePresence initial={false}>
+                {messages.map((m) => (
+                  <MessageBubble key={m.id} message={m} />
+                ))}
+                {sending && <TypingIndicator key="typing" />}
+              </AnimatePresence>
               <div ref={bottomRef} />
             </div>
 
-            <form onSubmit={handleSend} className="flex gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
-              <input
-                className="input"
-                placeholder="Type a message..."
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              <button type="submit" disabled={sending || !draft.trim()} className="btn-primary">
-                Send
-              </button>
-            </form>
+            <div className="border-t border-gray-100 p-4 dark:border-gray-800">
+              <form onSubmit={handleSend} className="flex items-end gap-2">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  className="input max-h-40 flex-1 resize-none py-2.5"
+                  placeholder="Type a message... (Enter to send, Shift+Enter for a new line)"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                  disabled={sending}
+                />
+                <button
+                  type="submit"
+                  disabled={sending || !draft.trim()}
+                  aria-label="Send message"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <SendIcon className="h-4 w-4" />
+                </button>
+              </form>
+            </div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+function MessageBubble({ message }: { message: ChatMessage }) {
+  const isUser = message.sender === "user";
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2 }}
+      className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}
+    >
+      {!isUser && (
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
+          <SparkleIcon className="h-3.5 w-3.5" />
+        </div>
+      )}
+      <div
+        className={cn(
+          "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+          isUser
+            ? "rounded-br-sm bg-brand-600 text-white"
+            : "rounded-bl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
+        )}
+      >
+        {isUser ? (
+          <span className="whitespace-pre-wrap">{message.content}</span>
+        ) : (
+          <div className="markdown-content">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-4 last:mb-0">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-4 last:mb-0">{children}</ol>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                a: ({ children, href }) => (
+                  <a href={href} target="_blank" rel="noreferrer" className="text-brand-600 underline dark:text-brand-400">
+                    {children}
+                  </a>
+                ),
+                code: ({ children }) => (
+                  <code className="rounded bg-black/10 px-1 py-0.5 text-xs dark:bg-white/10">{children}</code>
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function TypingIndicator() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0 }}
+      className="flex items-end gap-2"
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
+        <SparkleIcon className="h-3.5 w-3.5" />
+      </div>
+      <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
+        {[0, 1, 2].map((i) => (
+          <motion.span
+            key={i}
+            className="h-1.5 w-1.5 rounded-full bg-gray-400 dark:bg-gray-500"
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
+          />
+        ))}
+      </div>
+    </motion.div>
   );
 }

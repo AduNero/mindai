@@ -392,22 +392,3 @@ class PromoteToCounselorView(APIView):
         return Response(CounselorProfileSerializer(counselor_profile).data, status=status.HTTP_201_CREATED)
 
 
-class EstablishOIDCSessionView(APIView):
-    """
-    Bridges JWT auth (used everywhere else in the API) to Django's
-    session/cookie auth, which is what the OIDC authorization endpoint
-    (django-oauth-toolkit, /o/authorize/) checks. The SPA calls this once,
-    JWT-authenticated, right before loading the embedded LibreChat iframe;
-    LibreChat's OpenID strategy then redirects the browser to /o/authorize/
-    in that same browser session, where the cookie set here lets Django
-    recognize the user without a second login. See apps.users.oidc and
-    docs/architecture/librechat-integration.md.
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        from django.contrib.auth import login
-
-        login(request, request.user, backend="django.contrib.auth.backends.ModelBackend")
-        return Response({"message": "Session established."})

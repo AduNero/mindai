@@ -1,8 +1,5 @@
-import uuid
-
 from django.db.models import Count
 from django.http import HttpResponse
-from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,9 +12,9 @@ from .serializers import (
     ChatMessageSerializer,
     ChatSessionDetailSerializer,
     ChatSessionSerializer,
-    ChatSyncSerializer,
     SendMessageSerializer,
 )
+from .services.llm import ChatServiceUnavailable, get_chat_reply
 
 AUTO_TITLE_MAX_LENGTH = 60
 
@@ -41,7 +38,7 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
         return ChatSessionSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user, librechat_conversation_id=f"local-{uuid.uuid4()}")
+        serializer.save(user=self.request.user)
 
     @action(detail=True, methods=["get"])
     def messages(self, request, pk=None):
@@ -52,29 +49,49 @@ class ChatSessionViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def send(self, request, pk=None):
         """
-        Persists a user message locally. Standalone-testable today; once
-        Phase 6 wires the embedded LibreChat UI, actual conversational
-        turns flow through LibreChat directly and are mirrored back here
-        via the /sync/ endpoint instead of this one.
+        Persists the user's message, generates the AI companion's reply
+        (apps.chat.services.llm), and persists that too. If the LLM
+        provider is unreachable, the user's message is still saved and
+        returned with assistant_message: null + an error note rather than
+        losing it — the user can retry without re-typing.
         """
 
         session = self.get_object()
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        message = ChatMessage.objects.create(
+        user_message = ChatMessage.objects.create(
             session=session, sender=MessageSender.USER, content=serializer.validated_data["content"]
         )
-        session.last_message_at = message.created_at
+        session.last_message_at = user_message.created_at
         if session.messages.count() == 1:
-            session.title = message.content[:AUTO_TITLE_MAX_LENGTH]
+            session.title = user_message.content[:AUTO_TITLE_MAX_LENGTH]
         session.save(update_fields=["last_message_at", "title"])
 
         from apps.ai_engine.tasks import analyze_content
 
-        analyze_content.delay("chat", "chatmessage", str(message.id))
+        analyze_content.delay("chat", "chatmessage", str(user_message.id))
 
-        return Response(ChatMessageSerializer(message).data, status=status.HTTP_201_CREATED)
+        history = [
+            {"role": m.sender, "content": m.content}
+            for m in session.messages.order_by("created_at")
+        ]
+
+        response_data = {"user_message": ChatMessageSerializer(user_message).data, "assistant_message": None}
+        try:
+            reply_text = get_chat_reply(history)
+        except ChatServiceUnavailable as exc:
+            response_data["error"] = str(exc)
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        assistant_message = ChatMessage.objects.create(
+            session=session, sender=MessageSender.ASSISTANT, content=reply_text
+        )
+        session.last_message_at = assistant_message.created_at
+        session.save(update_fields=["last_message_at"])
+
+        response_data["assistant_message"] = ChatMessageSerializer(assistant_message).data
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"])
     def export(self, request, pk=None):
@@ -120,78 +137,3 @@ class ChatSearchView(APIView):
                 for m in messages
             ]
         )
-
-
-class LibreChatSyncNowView(APIView):
-    """
-    On-demand sync so the AI Chat page shows fresh LibreChat history
-    immediately on load, rather than waiting for the periodic 5-minute
-    sweep (apps.chat.tasks.sync_all_librechat_conversations).
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        from .services.librechat_sync import sync_user_conversations
-
-        synced = sync_user_conversations(request.user)
-        return Response({"synced_conversations": synced})
-
-
-class ChatSyncView(APIView):
-    """
-    Phase 6 hook: upserts a ChatSession + its ChatMessages from LibreChat's
-    conversation store. Kept as a normal JWT-authenticated, user-scoped
-    endpoint for Phase 3; Phase 6 documents the actual service-to-service
-    auth chosen for the bridge process that calls it.
-    """
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        serializer = ChatSyncSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        session, _ = ChatSession.objects.get_or_create(
-            user=request.user,
-            librechat_conversation_id=data["librechat_conversation_id"],
-            defaults={"title": data.get("title") or "New conversation"},
-        )
-        if data.get("title"):
-            session.title = data["title"]
-
-        existing_ids = set(
-            ChatMessage.objects.filter(session=session).values_list("librechat_message_id", flat=True)
-        )
-        new_messages = []
-        latest_timestamp = session.last_message_at
-        for msg in data["messages"]:
-            if msg["librechat_message_id"] in existing_ids:
-                continue
-            created_at = msg.get("created_at") or timezone.now()
-            new_messages.append(
-                ChatMessage(
-                    session=session,
-                    librechat_message_id=msg["librechat_message_id"],
-                    sender=msg["sender"],
-                    content=msg["content"],
-                    created_at=created_at,
-                )
-            )
-            if latest_timestamp is None or created_at > latest_timestamp:
-                latest_timestamp = created_at
-
-        if new_messages:
-            ChatMessage.objects.bulk_create(new_messages)
-
-            from apps.ai_engine.tasks import analyze_content
-
-            for msg in new_messages:
-                if msg.sender == MessageSender.USER:
-                    analyze_content.delay("chat", "chatmessage", str(msg.id))
-
-        session.last_message_at = latest_timestamp
-        session.save()
-
-        return Response(ChatSessionDetailSerializer(session).data, status=status.HTTP_200_OK)

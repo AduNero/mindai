@@ -27,3 +27,9 @@ export interface ChatSearchResult {
   snippet: string;
   created_at: string;
 }
+
+export interface SendMessageResponse {
+  user_message: ChatMessage;
+  assistant_message: ChatMessage | null;
+  error?: string;
+}

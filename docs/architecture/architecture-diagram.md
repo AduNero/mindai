@@ -14,19 +14,14 @@ graph TB
 
     subgraph App["Application Tier"]
         DJANGO["Django REST Framework API\n(Gunicorn/WSGI)"]
-        OIDC["OIDC Provider\n(django-oauth-toolkit)"]
-        CELERY["Celery Workers\n(AI analysis, email, sync)"]
+        CELERY["Celery Workers\n(AI analysis, chat replies, email)"]
         BEAT["Celery Beat\n(scheduled tasks)"]
     end
 
     subgraph AI["AI Layer"]
         HF["Hugging Face Transformers\nSentiment + Emotion models"]
         LEXICON["Lexicon / Rule Engine\n(stress, anxiety, risk, recommendations)"]
-    end
-
-    subgraph Chat["LibreChat"]
-        LIBRECHAT["LibreChat App\n(Node.js)"]
-        LCMONGO[("LibreChat MongoDB")]
+        LLM["Chat LLM\n(apps.chat.services.llm)"]
     end
 
     subgraph Data["Data Tier"]
@@ -34,31 +29,26 @@ graph TB
         REDIS[("Redis\nCache + Celery broker")]
     end
 
+    EXTERNAL(["External LLM Provider\n(NVIDIA NIM by default,\nany OpenAI-API-compatible)"])
+
     SPA -->|"HTTPS / REST + JWT"| NGINX
-    SPA -->|"iframe (embedded)"| NGINX
     NGINX --> DJANGO
-    NGINX --> LIBRECHAT
 
     DJANGO --> MYSQL
     DJANGO --> REDIS
-    DJANGO --> OIDC
-    OIDC -->|"SSO: authorize/token"| LIBRECHAT
+    DJANGO -->|"chat send/reply"| LLM
 
     CELERY --> MYSQL
     CELERY --> REDIS
     CELERY --> HF
     CELERY --> LEXICON
-    CELERY -->|"read-only Mongo sync"| LCMONGO
     BEAT --> REDIS
 
-    LIBRECHAT --> LCMONGO
-    LIBRECHAT -->|"model provider API\n(OpenAI/Anthropic/etc.)"| EXTERNAL(["External LLM Provider"])
+    LLM -->|"OpenAI-compatible API"| EXTERNAL
 
     style SPA fill:#4f5fee,color:#fff
     style DJANGO fill:#2c2f84,color:#fff
-    style LIBRECHAT fill:#10b981,color:#fff
     style MYSQL fill:#f59e0b,color:#000
-    style LCMONGO fill:#f59e0b,color:#000
     style REDIS fill:#ef4444,color:#fff
 ```
 
@@ -67,16 +57,15 @@ graph TB
 | Layer | Technology | Responsibility |
 |---|---|---|
 | Client | React 18 + TypeScript + Tailwind | SPA UI, JWT storage, chart rendering, dark/light mode |
-| Reverse proxy | Nginx | TLS termination, routes `/api/*` and `/o/*` to Django, `/` to the frontend static build, `/ai-chat/*` to LibreChat (production same-domain setup — see [librechat-integration.md](librechat-integration.md)) |
-| Application | Django REST Framework | Business logic, auth (JWT + OIDC), permissions, serialization |
-| AI layer | Hugging Face Transformers + rule-based services | Sentiment/emotion classification, lexicon-based construct scoring, crisis-phrase detection, wellness score computation, trend prediction |
-| Async | Celery + Redis | AI analysis dispatch, email delivery, LibreChat conversation sync, scheduled reminders and daily sweeps |
-| Chat | LibreChat (Node.js) + its own MongoDB | Conversational AI UI and LLM orchestration; MindCare mirrors its data one-directionally (read-only) |
-| Data | MySQL 8 | System of record for all MindCare domain data (30+ normalized tables — see [docs/database/schema.md](../database/schema.md)) |
+| Reverse proxy | Nginx | TLS termination, routes `/api/*` to Django, `/` to the frontend static build |
+| Application | Django REST Framework | Business logic, JWT auth, permissions, serialization |
+| AI layer | Hugging Face Transformers + rule-based services + chat LLM client | Sentiment/emotion classification, lexicon-based construct scoring, crisis-phrase detection, wellness score computation, trend prediction, AI companion replies |
+| Async | Celery + Redis | AI analysis dispatch, email delivery, scheduled reminders and daily sweeps |
+| Chat | `apps.chat` (Django) + external LLM provider | Conversation storage/history/search/export live in MySQL like everything else; message generation is one API call out to the configured provider — see [AI Chat Integration](ai-chat-integration.md) |
+| Data | MySQL 8 | System of record for all domain data (30+ normalized tables — see [docs/database/schema.md](../database/schema.md)) |
 | Cache/Queue | Redis | DRF throttle counters, Celery broker/result backend |
 
 ## Why these boundaries
 
-- **LibreChat is not forked or modified.** MindCare treats it as an external system integrated via two narrow, well-defined interfaces: OIDC (for auth) and a read-only MongoDB sync (for conversation history). This keeps LibreChat upgradable independently of MindCare's codebase.
-- **AI inference is isolated in Celery workers**, not the request/response cycle — sentiment/emotion analysis and model loading are too slow to run synchronously in an API view. `AI_ANALYSIS_ENABLED=False` lets the API run entirely without the AI dependency stack installed (see `apps.ai_engine.services.model_loader`).
-- **MySQL is the single source of truth** for everything except live chat content, which is why chat messages are *mirrored* into MySQL (for search/export/analysis) rather than MindCare depending on LibreChat's Mongo store at request time.
+- **AI inference is isolated in Celery workers**, not the request/response cycle — sentiment/emotion analysis and model loading are too slow to run synchronously in an API view. `AI_ANALYSIS_ENABLED=False` lets the API run entirely without the AI dependency stack installed (see `apps.ai_engine.services.model_loader`). Chat replies are the one exception — the LLM call happens synchronously inside the `send` request, since the user is waiting for a response; if the provider is unreachable, the user's message is still saved and the request still returns 201 rather than failing.
+- **MySQL is the single source of truth for everything**, including chat — there's no external chat datastore to keep in sync. Only the reply generation itself is delegated externally.

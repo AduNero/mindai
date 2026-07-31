@@ -7,11 +7,6 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   headers: { "Content-Type": "application/json" },
-  // Everywhere else this API is bearer-token (JWT) auth and ignores
-  // cookies entirely, but /auth/librechat-session/ sets a session cookie
-  // the browser needs to send/receive across origins for the LibreChat
-  // SSO bridge to work (see pages/app/AIChatPage.tsx).
-  withCredentials: true,
 });
 
 apiClient.interceptors.request.use((config) => {

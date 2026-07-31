@@ -14,22 +14,12 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # only ingress to the backend container (not port-mapped to the host in
 # docker-compose.prod.yml), so trusting this header here is safe — without
 # it, request.is_secure() is False even over real HTTPS, which throws off
-# CSRF, redirects, and any absolute-URI building (e.g. the OIDC issuer).
+# CSRF, redirects, and any absolute-URI building.
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT", default=True)  # noqa: F405
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
-# None (not the base setting's Lax) so the session cookie set by
-# EstablishOIDCSessionView survives the LibreChat iframe's own top-level
-# navigation to /o/authorize/ — requires Secure, which is guaranteed here
-# since production always runs behind HTTPS.
-SESSION_COOKIE_SAMESITE = "None"
-# Scopes the cookie to the parent domain (e.g. ".mindcare.example.com")
-# rather than just the exact host that set it, so it's sent on requests to
-# the LibreChat subdomain too — see docs/architecture/librechat-integration.md.
-# Unset by default (host-only cookie) since the value is deployment-specific.
-SESSION_COOKIE_DOMAIN = env("SESSION_COOKIE_DOMAIN", default=None)  # noqa: F405
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True

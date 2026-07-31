@@ -95,3 +95,48 @@ export const CloseIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const SendIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-7.5-15-7.5 3 7.5-3 7.5z" />
+  </Icon>
+);
+
+export const SparkleIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9L12 3zM19 14l.9 2.3L22 17l-2.1.7L19 20l-.9-2.3L16 17l2.1-.7L19 14zM5 14l.7 1.8L7.5 16l-1.8.7L5 18l-.7-1.3L2.5 16l1.8-.2L5 14z"
+    />
+  </Icon>
+);
+
+export const PlusIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </Icon>
+);
+
+export const SearchIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <circle cx="11" cy="11" r="7" strokeLinecap="round" strokeLinejoin="round" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
+  </Icon>
+);
+
+export const TrashIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M4 7h16M9 7V4.5A1.5 1.5 0 0110.5 3h3A1.5 1.5 0 0115 4.5V7m2 0v12.5A1.5 1.5 0 0115.5 21h-7A1.5 1.5 0 017 19.5V7h10z"
+    />
+  </Icon>
+);
+
+export const DownloadIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v13m0 0l-4.5-4.5M12 16l4.5-4.5M4 20h16" />
+  </Icon>
+);
+

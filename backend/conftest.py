@@ -51,6 +51,20 @@ def _mock_ai_pipelines():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _mock_chat_llm():
+    """
+    Prevents apps.chat.views.ChatSessionViewSet.send from making a real
+    network call to the chat LLM provider during tests. Patched at the
+    consumption point (apps.chat.views), not apps.chat.services.llm, for
+    the same import-binding reason as _mock_ai_pipelines above. Individual
+    tests can override this patch's return value for specific assertions.
+    """
+
+    with patch("apps.chat.views.get_chat_reply", return_value="Mocked assistant reply."):
+        yield
+
+
 class UserFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = User

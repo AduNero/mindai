@@ -134,6 +134,6 @@ class TestIDORAcrossOwnedResources:
     def test_cannot_view_other_users_chat_session(self, auth_client, other_user):
         from apps.chat.models import ChatSession
 
-        session = ChatSession.objects.create(user=other_user, librechat_conversation_id="local-abc", title="Private")
+        session = ChatSession.objects.create(user=other_user, title="Private")
         response = auth_client.get(f"/api/v1/chat/sessions/{session.id}/")
         assert response.status_code == status.HTTP_404_NOT_FOUND

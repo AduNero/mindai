@@ -120,73 +120,9 @@ services:
     depends_on:
       - backend
 
-  librechat_mongo:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - librechat_mongo_data:/data/db
-
-  # Dev-only TLS termination in front of the backend's OIDC endpoints —
-  # LibreChat's OIDC client refuses HTTP issuers, and production sidesteps
-  # this because docker/nginx/nginx.conf already terminates real TLS
-  # end-to-end. See docker/oidc-proxy/. Named with a hyphen, not an
-  # underscore — Django's Host-header validation rejects underscores as
-  # invalid per RFC 1034/1035 even with ALLOWED_HOSTS=["*"], and this
-  # hostname is what LibreChat sends as Host when it calls the proxy.
-  #
-  # Published to the host on the default HTTPS port 443 (not a custom
-  # port) deliberately — the OIDC discovery document reports one host for
-  # *every* endpoint, including authorization_endpoint, which the user's
-  # browser (not just LibreChat's server) is redirected to for the
-  # interactive login step. Containers reach this proxy on its real
-  # container-internal port (443, via Docker's embedded DNS) while the
-  # browser reaches it via the host-published port — those have to be the
-  # same number, or LibreChat's own server-side discovery fetch breaks,
-  # so both sides use plain "https://oidc-proxy/o" with no port suffix.
-  # Requires port 443 to be free on the host; the host machine also needs
-  # a hosts-file entry (127.0.0.1  oidc-proxy) so the browser can resolve
-  # the name at all — see docs/architecture/installation-guide.md.
-  oidc-proxy:
-    build:
-      context: ./docker/oidc-proxy
-    restart: unless-stopped
-    volumes:
-      - oidc_proxy_certs:/shared-certs
-    ports:
-      - "443:443"
-    depends_on:
-      - backend
-    healthcheck:
-      test: ["CMD", "curl", "-kf", "https://localhost/health/"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  librechat:
-    image: ghcr.io/danny-avila/librechat:latest
-    restart: unless-stopped
-    env_file: ./librechat/config/librechat.env
-    environment:
-      # Trusts oidc-proxy's self-signed cert for its OIDC discovery/token calls.
-      NODE_EXTRA_CA_CERTS: /certs/oidc-proxy.crt
-    volumes:
-      - ./librechat/config/librechat.yaml:/app/librechat.yaml:ro
-      - librechat_images:/app/client/public/images
-      - oidc_proxy_certs:/certs:ro
-    ports:
-      - "3080:3080"
-    depends_on:
-      librechat_mongo:
-        condition: service_started
-      oidc-proxy:
-        condition: service_healthy
-
 volumes:
   mysql_data:
   redis_data:
   media_data:
   static_data:
   frontend_node_modules:
-  librechat_mongo_data:
-  librechat_images:
-  oidc_proxy_certs:

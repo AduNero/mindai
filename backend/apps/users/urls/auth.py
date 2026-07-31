@@ -15,5 +15,4 @@ urlpatterns = [
     path("password/change/", views.ChangePasswordView.as_view(), name="auth-password-change"),
     path("sessions/", views.UserSessionListView.as_view(), name="auth-sessions"),
     path("sessions/<uuid:session_id>/", views.RevokeSessionView.as_view(), name="auth-session-revoke"),
-    path("librechat-session/", views.EstablishOIDCSessionView.as_view(), name="auth-librechat-session"),
 ]

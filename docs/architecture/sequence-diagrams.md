@@ -135,7 +135,32 @@ sequenceDiagram
     API-->>FE: 200 OK
 ```
 
-## 5. LibreChat SSO and conversation sync
+## 5. AI companion chat
 
-See [librechat-integration.md](librechat-integration.md) for the full SSO
-sequence diagram and the conversation-sync flow.
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant FE as Frontend (SPA)
+    participant API as Django API
+    participant DB as MySQL
+    participant Celery as Celery Worker
+    participant LLM as External LLM Provider
+
+    U->>FE: Type message, submit
+    FE->>API: POST /chat/sessions/:id/send/ {content}
+    API->>DB: Create ChatMessage (sender=user)
+    API->>Celery: analyze_content.delay() [sentiment/emotion/risk]
+    API->>LLM: chat.completions.create(history + system prompt)
+    alt provider reachable
+        LLM-->>API: reply text
+        API->>DB: Create ChatMessage (sender=assistant)
+        API-->>FE: 201 {user_message, assistant_message}
+    else provider unreachable/error
+        API-->>FE: 201 {user_message, assistant_message: null, error}
+    end
+    FE-->>U: Render new message(s)
+
+    Note over Celery,DB: analyze_content runs independently of the reply —<br/>a slow/failed LLM call never blocks sentiment/risk analysis, and vice versa.
+```
+
+See [AI Chat Integration](ai-chat-integration.md) for the full design.
