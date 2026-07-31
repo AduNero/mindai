@@ -193,6 +193,17 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": (
         "rest_framework.throttling.ScopedRateThrottle",
     ),
+    # Without this, DRF's IP-based throttle identity (used for anonymous
+    # requests, e.g. login attempts) takes the *entire* raw
+    # X-Forwarded-For header verbatim as the cache key whenever one is
+    # present — behind any reverse proxy (nginx on the VPS path, Render's
+    # edge on the free-tier path) that value isn't guaranteed identical
+    # across requests, so the throttle counter can silently never
+    # accumulate and rate limiting stops working. NUM_PROXIES=1 makes it
+    # correctly extract just the actual client IP instead. Safe for
+    # direct/no-proxy access too (falls back to REMOTE_ADDR when no
+    # X-Forwarded-For header is present at all).
+    "NUM_PROXIES": env.int("NUM_PROXIES", default=1),
     "DEFAULT_THROTTLE_RATES": {
         "auth": env("RATE_LIMIT_LOGIN", default="5/min"),
         "default": env("RATE_LIMIT_DEFAULT", default="100/min"),
