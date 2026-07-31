@@ -1,0 +1,66 @@
+# Render Blueprint for the free-tier hosting path — see
+# docs/architecture/free-tier-hosting.md for the full walkthrough
+# (what this deploys, its limitations vs. the Docker Compose/VPS path,
+# and the manual steps still needed: Upstash Redis, the Vercel frontend,
+# and filling in the `sync: false` secrets below in Render's dashboard).
+#
+# Deploy: connect this repo in the Render dashboard → "New Blueprint
+# Instance" → it reads this file automatically.
+
+databases:
+  - name: mindcare-db
+    plan: free
+    databaseName: mindcare_ai
+    user: mindcare_user
+
+services:
+  - type: web
+    name: mindcare-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "pip install -r requirements/render.txt"
+    startCommand: "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn config.wsgi:application"
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mindcare-db
+          property: connectionString
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: JWT_SIGNING_KEY
+        generateValue: true
+      # Matches the `name:` above — update this if you rename the service
+      # in Render's dashboard, since Render assigns the hostname from it.
+      - key: DJANGO_ALLOWED_HOSTS
+        value: mindcare-backend.onrender.com
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      # No persistent background-worker process on the free tier — tasks
+      # (AI analysis dispatch, chat's own analyze_content call, emails)
+      # run synchronously in the request instead. See settings/base.py.
+      - key: CELERY_TASK_ALWAYS_EAGER
+        value: "True"
+      # Off by default: real inference (Hugging Face Transformers) is too
+      # heavy for the free tier's 512MB RAM running synchronously in the
+      # request cycle. Sentiment/emotion analysis tasks no-op gracefully
+      # when this is False — everything else works normally. Flip to
+      # True (and switch requirements/render.txt to also pull in
+      # requirements/ai.txt) only if you've confirmed it fits your plan's
+      # memory limit.
+      - key: AI_ANALYSIS_ENABLED
+        value: "False"
+      # Fill in after creating the other free accounts — see
+      # docs/architecture/free-tier-hosting.md.
+      - key: CHAT_LLM_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: DEFAULT_CRISIS_COUNTRY
+        value: GH

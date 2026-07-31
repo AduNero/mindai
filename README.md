@@ -121,6 +121,7 @@ and copy `.env.production.example` instead of `.env.example`.
 | [Installation Guide](docs/architecture/installation-guide.md) | Docker & manual setup, one-time management commands, troubleshooting |
 | [Docker Configuration](docs/architecture/docker-configuration.md) | Dockerfile targets, compose service breakdown, volumes, networking |
 | [Deployment Guide](docs/architecture/deployment-guide.md) | Production hardening, reverse-proxy topology, secrets, release checklist |
+| [Free-Tier Hosting](docs/architecture/free-tier-hosting.md) | $0/month demo deployment on Render + Vercel + Upstash, and its tradeoffs vs. the VPS path |
 | [Architecture Diagram](docs/architecture/architecture-diagram.md) | Component overview and layer responsibilities |
 | [Sequence Diagrams](docs/architecture/sequence-diagrams.md) | Auth, journal→AI→risk, assessment crisis flag, appointment approval |
 | [Flowcharts](docs/architecture/flowcharts.md) | Emergency detection, recommendation engine, wellness score computation |

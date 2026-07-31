@@ -109,21 +109,33 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# --- Database (MySQL 8) ---
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.mysql",
-        "NAME": env("MYSQL_DATABASE", default="mindcare_ai"),
-        "USER": env("MYSQL_USER", default="mindcare_user"),
-        "PASSWORD": env("MYSQL_PASSWORD", default=""),
-        "HOST": env("MYSQL_HOST", default="localhost"),
-        "PORT": env("MYSQL_PORT", default="3306"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+# --- Database ---
+# MySQL 8 (docker-compose / VPS deployments) by default. If DATABASE_URL is
+# set (e.g. Render's auto-injected Postgres connection string for the free
+# managed-Postgres, docker-compose-less hosting path — see
+# docs/architecture/free-tier-hosting.md), that takes over instead, since
+# free MySQL hosting isn't realistically available. Both paths are fully
+# supported; nothing about the app is MySQL- or Postgres-specific beyond
+# this block.
+if env("DATABASE_URL", default=""):
+    import dj_database_url
+
+    DATABASES = {"default": dj_database_url.parse(env("DATABASE_URL"), conn_max_age=600)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.mysql",
+            "NAME": env("MYSQL_DATABASE", default="mindcare_ai"),
+            "USER": env("MYSQL_USER", default="mindcare_user"),
+            "PASSWORD": env("MYSQL_PASSWORD", default=""),
+            "HOST": env("MYSQL_HOST", default="localhost"),
+            "PORT": env("MYSQL_PORT", default="3306"),
+            "OPTIONS": {
+                "charset": "utf8mb4",
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+            },
+        }
     }
-}
 
 AUTH_USER_MODEL = "users.User"
 
@@ -249,6 +261,26 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+# Runs tasks synchronously, in-process, instead of dispatching to a
+# separate worker — for deployments with no persistent background-worker
+# process available (e.g. free-tier PaaS hosting; see
+# docs/architecture/free-tier-hosting.md). Off by default: docker-compose
+# and VPS deployments run real celery_worker/celery_beat processes.
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = CELERY_TASK_ALWAYS_EAGER
+
+# DRF's ScopedRateThrottle (and anything else using django.core.cache)
+# needs a cache shared across processes to work correctly — the default
+# LocMemCache is per-process, so with multiple Gunicorn workers each one
+# would enforce rate limits independently, effectively multiplying the
+# real limit by the worker count. Django's native Redis backend (built
+# in since Django 4.0, no extra package needed) fixes that.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+    }
+}
 
 # --- Hugging Face / AI engine (see apps.ai_engine, Phase 5) ---
 # AI_ANALYSIS_ENABLED lets the backend run (migrations, API, tests) without

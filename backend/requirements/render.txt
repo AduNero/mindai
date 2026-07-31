@@ -1,0 +1,12 @@
+# Backend requirements for the free-tier hosting path (Render + Vercel +
+# Upstash — see docs/architecture/free-tier-hosting.md). Adds what that
+# path needs on top of requirements/production.txt: a Postgres driver
+# (Render's free managed database) and a parser for the DATABASE_URL
+# connection string Render injects automatically.
+-r production.txt
+
+# Unpinned patch/minor, like Pillow in base.txt — psycopg's binary wheel
+# availability lags new Python releases, so an exact pin risks no wheel
+# being available yet for whatever Python version is actually deployed.
+psycopg[binary]>=3.2
+dj-database-url==2.2.0

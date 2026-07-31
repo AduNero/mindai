@@ -20,6 +20,11 @@ AI_ANALYSIS_ENABLED = True
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
+# base.py's CACHES points at Redis (needed in real deployments so rate
+# limiting works correctly across multiple worker processes — see base.py)
+# but the test suite shouldn't require a real Redis server to run.
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

@@ -75,3 +75,6 @@ jobs:
 
       - name: Validate production compose file
         run: docker compose -f docker-compose.prod.yml config --quiet
+
+      - name: Validate render.yaml syntax
+        run: python3 -c "import yaml; yaml.safe_load(open('render.yaml'))"

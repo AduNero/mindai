@@ -1,0 +1,109 @@
+# Free-Tier Hosting (Render + Vercel + Upstash)
+
+This is the **$0/month** way to put MindCare AI online, for demos and
+portfolios rather than real user traffic. It's a genuinely different
+deployment shape from [deployment-guide.md](deployment-guide.md) (which
+covers a VPS running `docker-compose.prod.yml` as designed) — no free
+platform runs a multi-service Docker Compose stack, so this path splits
+the app across three free services and makes a few real compromises
+along the way. Read [Limitations](#limitations) before committing to it
+for anything beyond a demo.
+
+| Piece | Service | Free tier |
+|---|---|---|
+| Frontend (static build) | [Vercel](https://vercel.com) | Yes, no meaningful limit for this |
+| Backend (Django) | [Render](https://render.com) | Yes — spins down after 15 min idle |
+| Database | Render's managed Postgres | Yes — not MySQL (see below) |
+| Redis (cache + rate limiting) | [Upstash](https://upstash.com) | Yes |
+| Background jobs (AI analysis, chat, email) | *(none — see below)* | Run synchronously instead |
+
+## 1. Backend — Render
+
+1. Push to GitHub (already done if you're reading this from the repo).
+2. In the Render dashboard: **New → Blueprint**, connect this repo. Render
+   reads [`render.yaml`](../../render.yaml) at the repo root automatically —
+   it defines the free web service and free Postgres database, and
+   generates `DJANGO_SECRET_KEY`/`JWT_SIGNING_KEY` for you.
+3. Render deploys immediately, but three env vars are intentionally left
+   blank (`sync: false` in `render.yaml`) since they depend on accounts
+   you haven't created yet — come back and fill these in after steps 2–3
+   below: `CHAT_LLM_API_KEY`, `REDIS_URL`, `CORS_ALLOWED_ORIGINS`,
+   `CSRF_TRUSTED_ORIGINS`.
+4. Once deployed, use Render's **Shell** tab (under your service) to run
+   the one-time setup commands — there's no persistent worker to `exec`
+   into like `docker compose exec`, but the web service's shell works the
+   same way:
+   ```bash
+   python manage.py seed_assessments
+   python manage.py seed_recommendations
+   python manage.py seed_emergency_resources
+   python manage.py setup_periodic_tasks
+   python manage.py setup_ai_periodic_tasks
+   python manage.py createsuperuser
+   ```
+   (`migrate` and `collectstatic` already run automatically as part of the
+   Blueprint's start command.)
+
+## 2. Redis — Upstash
+
+1. Create a free database at [upstash.com](https://upstash.com) (any region).
+2. Copy the **TLS-enabled** connection string (starts `rediss://`).
+3. Back in Render: set `REDIS_URL` to that value. Same value also works
+   for `CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND` if you ever turn real
+   background workers back on — not needed while `CELERY_TASK_ALWAYS_EAGER=True`.
+
+## 3. Frontend — Vercel
+
+1. Import this repo in Vercel. Set **Root Directory** to `frontend` —
+   Vercel auto-detects the Vite build from there.
+2. Add an environment variable: `VITE_API_BASE_URL` =
+   `https://mindcare-backend.onrender.com/api/v1` (swap in your actual
+   Render service URL if you renamed it in `render.yaml`).
+3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
+   routes (React Router) don't 404 on refresh.
+
+## 4. Close the loop
+
+Back in Render, fill in the env vars that needed the Vercel URL:
+
+- `CORS_ALLOWED_ORIGINS` = `https://your-app.vercel.app`
+- `CSRF_TRUSTED_ORIGINS` = `https://your-app.vercel.app`
+- `CHAT_LLM_API_KEY` = your NVIDIA NIM (or other OpenAI-API-compatible
+  provider) key — see [AI Chat Integration](ai-chat-integration.md)
+
+Redeploy the backend for these to take effect. Visit the Vercel URL —
+that's the live site.
+
+## Limitations
+
+Being upfront about what's different from a real deployment:
+
+- **Cold starts**: Render's free web service spins down after 15 minutes
+  of no traffic. The first request after that takes 30–60s while it
+  wakes back up.
+- **No background workers**: `CELERY_TASK_ALWAYS_EAGER=True` runs AI
+  analysis, chat replies, and email dispatch synchronously inside the
+  request instead of on a separate worker. Fine for demo traffic; not how
+  the app is designed to behave under real load (see
+  [architecture-diagram.md](architecture-diagram.md)).
+- **`AI_ANALYSIS_ENABLED=False` by default**: real Hugging Face inference
+  (sentiment/emotion models) is too heavy for the free tier's 512MB RAM
+  running synchronously in-request. The rest of the app works normally;
+  sentiment/emotion results just won't populate unless you flip this on
+  and confirm it fits your plan.
+- **Postgres, not MySQL**: no realistic free managed MySQL exists today,
+  so this path uses `DATABASE_URL` (Postgres) instead — see
+  `config/settings/base.py`. Nothing in the app is MySQL-specific beyond
+  that one settings block.
+- **Ephemeral filesystem**: Render's free tier filesystem resets on every
+  deploy/restart. User-uploaded files (profile pictures, generated
+  reports) won't persist — they'd need S3-compatible object storage
+  (Cloudflare R2, Backblaze B2, etc.) to survive, which isn't wired up
+  here.
+- **Free Postgres/Redis have their own limits** (row/connection/storage
+  caps) — check current limits on each provider's pricing page before
+  relying on this for anything beyond a demo.
+
+For anything beyond a demo, [deployment-guide.md](deployment-guide.md)'s
+VPS + Docker Compose path is the one this project is actually designed
+around.
