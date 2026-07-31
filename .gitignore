@@ -1,0 +1,61 @@
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+
+# --- Local tooling ---
+.claude/
+
+# --- Python / Django ---
+backend/venv/
+backend/.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.sqlite3
+backend/staticfiles/*
+!backend/staticfiles/.gitkeep
+backend/media/*
+!backend/media/.gitkeep
+!backend/media/profile_pictures/.gitkeep
+backend/test_media/
+.pytest_cache/
+.coverage
+htmlcov/
+celerybeat-schedule
+
+# --- Node / React ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/coverage/
+frontend/.vite/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+
+# --- LibreChat ---
+librechat/data-node/
+librechat/meili_data/
+librechat/logs/
+librechat/config/librechat.env
+!librechat/config/librechat.env.example
+
+# --- Docker ---
+docker/mysql/data/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+npm-debug.log*
+
+# --- Docs build artifacts ---
+docs/**/*.pdf.tmp

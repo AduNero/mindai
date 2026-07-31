@@ -1,0 +1,19 @@
+-r base.txt
+
+# Testing
+pytest==8.2.0
+pytest-django==4.8.0
+pytest-cov==5.0.0
+factory-boy==3.3.0
+faker==25.2.0
+# apps.ai_engine.services.mood_prediction imports numpy at module level;
+# the rest of requirements/ai.txt (torch/transformers) isn't needed to run
+# the test suite since HF pipelines are mocked (see conftest.py).
+numpy>=1.26
+
+# Linting / formatting
+ruff==0.4.4
+black==24.4.2
+
+# Dev ergonomics
+django-extensions==3.2.3

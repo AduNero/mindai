@@ -1,0 +1,192 @@
+
+# MindCare AI — development stack. Brings up every service with hot-reload
+# for backend and frontend. For production, see docker-compose.prod.yml.
+#
+# Quickstart: cp .env.example .env && docker compose up --build
+# See docs/architecture/installation-guide.md for the full walkthrough.
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mindcare_ai}
+      MYSQL_USER: ${MYSQL_USER:-mindcare_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+      target: base
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      MYSQL_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+      - static_data:/app/staticfiles
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+      target: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      MYSQL_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+      - media_data:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_beat:
+    build:
+      context: ./backend
+      dockerfile: ../docker/backend/Dockerfile
+      target: base
+    restart: unless-stopped
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      MYSQL_HOST: db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/frontend/Dockerfile
+      target: development
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  librechat_mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - librechat_mongo_data:/data/db
+
+  # Dev-only TLS termination in front of the backend's OIDC endpoints —
+  # LibreChat's OIDC client refuses HTTP issuers, and production sidesteps
+  # this because docker/nginx/nginx.conf already terminates real TLS
+  # end-to-end. See docker/oidc-proxy/. Named with a hyphen, not an
+  # underscore — Django's Host-header validation rejects underscores as
+  # invalid per RFC 1034/1035 even with ALLOWED_HOSTS=["*"], and this
+  # hostname is what LibreChat sends as Host when it calls the proxy.
+  #
+  # Published to the host on the default HTTPS port 443 (not a custom
+  # port) deliberately — the OIDC discovery document reports one host for
+  # *every* endpoint, including authorization_endpoint, which the user's
+  # browser (not just LibreChat's server) is redirected to for the
+  # interactive login step. Containers reach this proxy on its real
+  # container-internal port (443, via Docker's embedded DNS) while the
+  # browser reaches it via the host-published port — those have to be the
+  # same number, or LibreChat's own server-side discovery fetch breaks,
+  # so both sides use plain "https://oidc-proxy/o" with no port suffix.
+  # Requires port 443 to be free on the host; the host machine also needs
+  # a hosts-file entry (127.0.0.1  oidc-proxy) so the browser can resolve
+  # the name at all — see docs/architecture/installation-guide.md.
+  oidc-proxy:
+    build:
+      context: ./docker/oidc-proxy
+    restart: unless-stopped
+    volumes:
+      - oidc_proxy_certs:/shared-certs
+    ports:
+      - "443:443"
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost/health/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  librechat:
+    image: ghcr.io/danny-avila/librechat:latest
+    restart: unless-stopped
+    env_file: ./librechat/config/librechat.env
+    environment:
+      # Trusts oidc-proxy's self-signed cert for its OIDC discovery/token calls.
+      NODE_EXTRA_CA_CERTS: /certs/oidc-proxy.crt
+    volumes:
+      - ./librechat/config/librechat.yaml:/app/librechat.yaml:ro
+      - librechat_images:/app/client/public/images
+      - oidc_proxy_certs:/certs:ro
+    ports:
+      - "3080:3080"
+    depends_on:
+      librechat_mongo:
+        condition: service_started
+      oidc-proxy:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  redis_data:
+  media_data:
+  static_data:
+  frontend_node_modules:
+  librechat_mongo_data:
+  librechat_images:
+  oidc_proxy_certs:

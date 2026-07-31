@@ -1,0 +1,17 @@
+import { Navigate, Outlet, useLocation } from "react-router-dom";
+
+import { FullPageSpinner } from "@/components/common/Spinner";
+import { useAuth } from "@/context/AuthContext";
+
+export function ProtectedRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+
+  if (isLoading) return <FullPageSpinner />;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <Outlet />;
+}

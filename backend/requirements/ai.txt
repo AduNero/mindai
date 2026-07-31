@@ -1,0 +1,15 @@
+# AI / NLP dependencies — kept separate from base.txt since these are large
+# downloads (PyTorch + model weights) not needed to run/test the core API.
+# Installed in the backend Docker image's AI-enabled build stage (see
+# docker/backend/Dockerfile) and by developers who need to run analysis
+# locally.
+-r base.txt
+
+# Minimum-version (not exact) pins: the PyTorch CPU wheel index only hosts
+# a rolling window of recent releases, so hard-pinning an exact version
+# here tends to go stale and fail to resolve. Lock exact versions in your
+# deployment's lockfile/image instead once you've picked one that works.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.3
+transformers>=4.42
+numpy>=1.26

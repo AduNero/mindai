@@ -1,0 +1,41 @@
+# Core framework
+Django==5.0.6
+djangorestframework==3.15.1
+django-environ==0.11.2
+
+# Auth
+djangorestframework-simplejwt==5.3.1
+# OIDC provider — lets MindCare act as LibreChat's SSO identity provider (see apps.chat / Phase 6)
+django-oauth-toolkit==2.4.0
+cryptography>=42
+
+# LibreChat conversation sync (reads LibreChat's own MongoDB store, see apps.chat.services.librechat_sync)
+pymongo==4.8.0
+
+# Database
+mysqlclient==2.2.4
+
+# CORS / API docs / filtering
+django-cors-headers==4.3.1
+drf-spectacular==0.27.2
+django-filter==24.2
+
+# Async jobs (reminders, email, AI analysis triggers)
+celery==5.4.0
+redis==5.0.4
+django-celery-beat==2.6.0
+
+# Media / uploads
+# Unpinned patch/minor (not an exact ==) so pip can resolve a build with a
+# prebuilt wheel for whatever Python version is actually installed — image
+# libs are usually the slowest to publish wheels for a new Python release.
+Pillow>=10.3
+
+# Report exports
+reportlab==4.2.0
+
+# Input sanitization (admin-authored rich text in Resources)
+bleach==6.1.0
+
+# WSGI server
+gunicorn==22.0.0
