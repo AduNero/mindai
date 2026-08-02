@@ -282,7 +282,7 @@ class ProfilePictureUploadView(APIView):
         serializer = ProfilePictureUploadSerializer(profile, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(ProfileSerializer(profile).data)
+        return Response(ProfileSerializer(profile, context={"request": request}).data)
 
 
 class AdminUserListView(generics.ListAPIView):

@@ -33,6 +33,24 @@ class TestReportGeneration:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data["status"] == "completed"
 
+    def test_generated_report_file_url_is_absolute(self, auth_client):
+        """
+        Regression test: the response must carry a full scheme+host URL,
+        not a bare "/media/..." path. A relative path resolves fine when
+        frontend and backend share one origin (the VPS/nginx path), but
+        breaks when they're on different origins (e.g. Vercel + Render)
+        — the browser resolves it against the frontend's own origin
+        instead, 404ing. Caught by GeneratedReportListCreateView.create()
+        serializing without `context={"request": request}`, which is what
+        makes DRF's FileField build an absolute URI in the first place.
+        """
+        response = auth_client.post(
+            "/api/v1/admin-panel/reports/",
+            {"report_type": "monthly", "format": "csv", "period_start": "2026-01-01", "period_end": "2026-01-31"},
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["file"].startswith("http")
+
     def test_period_end_before_start_rejected(self, auth_client):
         response = auth_client.post(
             "/api/v1/admin-panel/reports/",

@@ -174,7 +174,9 @@ class GeneratedReportListCreateView(generics.ListCreateAPIView):
             report.error_message = str(exc)
         report.save()
 
-        return Response(GeneratedReportSerializer(report).data, status=status.HTTP_201_CREATED)
+        return Response(
+            GeneratedReportSerializer(report, context={"request": request}).data, status=status.HTTP_201_CREATED
+        )
 
 
 class GeneratedReportDetailView(generics.RetrieveAPIView):
