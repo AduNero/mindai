@@ -87,6 +87,15 @@ services:
         sync: false
       - key: DEFAULT_CRISIS_COUNTRY
         value: GH
+      # No reverse proxy in front of Django here to serve /media/ the way
+      # docker/nginx/nginx.conf does for the VPS path — without this,
+      # generated reports and any other uploaded/generated file 404 on
+      # download. Note the free tier's filesystem is still ephemeral (see
+      # Limitations in docs/architecture/free-tier-hosting.md): this
+      # makes downloads work within a running instance's lifetime, it
+      # doesn't make files survive a redeploy.
+      - key: SERVE_MEDIA_VIA_DJANGO
+        value: "True"
       # Without these, EMAIL_BACKEND falls back to Django's console
       # backend (base.py's default) — verification/password-reset emails
       # get silently printed to Render's log output instead of actually

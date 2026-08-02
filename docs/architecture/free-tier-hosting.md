@@ -109,11 +109,14 @@ Being upfront about what's different from a real deployment:
   so this path uses `DATABASE_URL` (Postgres) instead — see
   `config/settings/base.py`. Nothing in the app is MySQL-specific beyond
   that one settings block.
-- **Ephemeral filesystem**: Render's free tier filesystem resets on every
-  deploy/restart. User-uploaded files (profile pictures, generated
-  reports) won't persist — they'd need S3-compatible object storage
-  (Cloudflare R2, Backblaze B2, etc.) to survive, which isn't wired up
-  here.
+- **Ephemeral filesystem**: `SERVE_MEDIA_VIA_DJANGO=True` (see
+  `config/urls.py`) makes uploaded/generated files (profile pictures,
+  generated reports) downloadable within a running instance's lifetime —
+  without it they 404, since there's no reverse proxy here to serve
+  `/media/` the way `docker/nginx/nginx.conf` does for the VPS path. They
+  still don't *survive* a deploy/restart, though — Render's free tier
+  filesystem resets then. Real persistence needs S3-compatible object
+  storage (Cloudflare R2, Backblaze B2, etc.), which isn't wired up here.
 - **Free Postgres/Redis have their own limits** (row/connection/storage
   caps) — check current limits on each provider's pricing page before
   relying on this for anything beyond a demo.

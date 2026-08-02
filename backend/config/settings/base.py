@@ -169,6 +169,10 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+# See config/urls.py — only for deployments with no reverse proxy in
+# front of Django to serve /media/ directly (e.g. Render; not the VPS
+# path, which uses docker/nginx/nginx.conf for this instead).
+SERVE_MEDIA_VIA_DJANGO = env.bool("SERVE_MEDIA_VIA_DJANGO", default=False)
 
 # Uploaded file constraints (profile pictures, resource thumbnails).
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
