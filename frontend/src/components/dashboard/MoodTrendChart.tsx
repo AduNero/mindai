@@ -30,8 +30,8 @@ export function MoodTrendChart({ data }: MoodTrendChartProps) {
           {
             label: "Mood intensity",
             data: intensityValues,
-            borderColor: "#2f6456",
-            backgroundColor: "rgba(47, 100, 86, 0.12)",
+            borderColor: "#4f5fee",
+            backgroundColor: "rgba(79, 95, 238, 0.12)",
             fill: true,
             tension: 0.35,
             spanGaps: true,

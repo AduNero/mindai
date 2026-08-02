@@ -1,16 +1,6 @@
 @tailwind base;
-@tailwind utilities;
 @tailwind components;
-
-/*
-  DIRECTION: "Instrument Panel"
-  MindCare AI reads as a precision instrument for your own longitudinal
-  signal — mood, journal sentiment, assessments, chat — not another soft
-  pastel wellness-app toy, and not sterile clinical-white either. See
-  DESIGN.md for the full rationale (avoided ruts, palette, type choices).
-  OWN-WORLD: warm paper neutrals, one deep pine/teal accent, hairline
-  borders instead of heavy shadow-cards, IBM Plex Mono for every number.
-*/
+@tailwind utilities;
 
 @layer base {
   html {
@@ -18,21 +8,22 @@
   }
 
   body {
-    @apply bg-paper-50 text-gray-900 dark:bg-paper-950 dark:text-gray-100;
+    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+    font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
   }
 
   :focus-visible {
-    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-paper-50 dark:ring-offset-paper-950;
+    @apply outline-none ring-2 ring-brand-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-950;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-paper-900;
+    @apply rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-primary {
@@ -52,7 +43,7 @@
   }
 
   .input {
-    @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-paper-900 dark:text-gray-100;
+    @apply w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100;
   }
 
   .label {
@@ -61,17 +52,5 @@
 
   .badge {
     @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
-  }
-
-  /* Numeric readings — scores, stats, chart labels. Tabular figures so
-     they don't jitter horizontally as digits change. */
-  .stat-figure {
-    @apply font-mono tabular-nums tracking-tight;
-  }
-
-  /* A single ruled line, the "instrument panel" motif reused for section
-     breaks and score-display baselines. */
-  .hairline {
-    @apply border-t border-gray-200 dark:border-gray-800;
   }
 }

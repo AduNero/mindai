@@ -8,8 +8,6 @@
 
 # --- Local tooling ---
 .claude/
-.agents/
-skills-lock.json
 
 # --- Python / Django ---
 backend/venv/
