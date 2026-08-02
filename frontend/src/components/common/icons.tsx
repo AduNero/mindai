@@ -140,3 +140,9 @@ export const DownloadIcon = (props: IconProps) => (
   </Icon>
 );
 
+export const ArrowRightIcon = (props: IconProps) => (
+  <Icon {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12h15m0 0l-6-6m6 6l-6 6" />
+  </Icon>
+);
+

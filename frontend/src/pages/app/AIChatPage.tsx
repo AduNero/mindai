@@ -5,17 +5,65 @@ import remarkGfm from "remark-gfm";
 
 import { chatApi } from "@/api";
 import { FullPageSpinner } from "@/components/common/Spinner";
-import { DownloadIcon, PlusIcon, SearchIcon, SendIcon, SparkleIcon, TrashIcon } from "@/components/common/icons";
+import {
+  ArrowRightIcon,
+  ChatIcon,
+  ClipboardIcon,
+  DownloadIcon,
+  HeartIcon,
+  PlusIcon,
+  SearchIcon,
+  SendIcon,
+  SparkleIcon,
+  TrashIcon,
+} from "@/components/common/icons";
 import { useToast } from "@/context/ToastContext";
 import type { ChatMessage, ChatSession } from "@/types";
 import { cn } from "@/utils/cn";
 
 const SUGGESTED_PROMPTS = [
-  "I've been feeling anxious lately",
-  "Tips for better sleep",
-  "How can I manage exam stress?",
-  "I just want to talk",
+  { text: "I've been feeling anxious lately", Icon: HeartIcon },
+  { text: "Tips for better sleep", Icon: SparkleIcon },
+  { text: "How can I manage exam stress?", Icon: ClipboardIcon },
+  { text: "I just want to talk", Icon: ChatIcon },
 ];
+
+/**
+ * Friendly companion avatar — a small rounded character with glowing eyes,
+ * reused everywhere the AI's "presence" shows up (empty state, message
+ * bubbles, typing indicator) so it reads as one consistent character
+ * rather than a generic icon-in-a-box.
+ */
+function CompanionMascot({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" className={className} fill="none" aria-hidden="true">
+      <rect x="1" y="30" width="6" height="10" rx="3" className="fill-gray-200 dark:fill-gray-700" />
+      <rect x="57" y="30" width="6" height="10" rx="3" className="fill-gray-200 dark:fill-gray-700" />
+      <circle cx="32" cy="6" r="3" className="fill-brand-400" />
+      <line x1="32" y1="9" x2="32" y2="14" stroke="currentColor" strokeOpacity="0.15" strokeWidth="2" />
+      <rect
+        x="10"
+        y="12"
+        width="44"
+        height="38"
+        rx="19"
+        className="fill-gray-50 stroke-gray-200 dark:fill-gray-800 dark:stroke-gray-700"
+        strokeWidth="1.5"
+      />
+      <rect x="22" y="26" width="6" height="12" rx="3" className="fill-brand-500" />
+      <rect x="36" y="26" width="6" height="12" rx="3" className="fill-brand-500" />
+      <rect
+        x="20"
+        y="52"
+        width="24"
+        height="12"
+        rx="6"
+        className="fill-gray-50 stroke-gray-200 dark:fill-gray-800 dark:stroke-gray-700"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
 
 /**
  * AI companion chat. Messages are sent to the backend
@@ -170,15 +218,10 @@ export default function AIChatPage() {
       <div className="card flex flex-col overflow-hidden !p-0">
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-              <SparkleIcon className="h-4 w-4" />
-            </div>
+            <CompanionMascot className="h-8 w-9" />
             <h1 className="font-semibold text-gray-900 dark:text-gray-100">AI Companion</h1>
           </div>
-          <button
-            onClick={handleNewSession}
-            className="btn-primary w-full text-sm shadow-sm"
-          >
+          <button onClick={handleNewSession} className="btn-primary w-full text-sm shadow-sm">
             <PlusIcon className="h-4 w-4" />
             New conversation
           </button>
@@ -205,7 +248,7 @@ export default function AIChatPage() {
                 key={s.id}
                 onClick={() => selectSession(s.id)}
                 className={cn(
-                  "group flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
+                  "group flex w-full items-center justify-between gap-2 rounded-2xl px-3 py-2.5 text-left text-sm transition-colors",
                   s.id === activeId
                     ? "bg-brand-50 font-medium text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800",
@@ -225,31 +268,71 @@ export default function AIChatPage() {
       {/* Main pane */}
       <div className="card flex flex-col overflow-hidden !p-0">
         {!activeId ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-6 px-6 text-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-500/20">
-              <SparkleIcon className="h-8 w-8" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">How are you feeling today?</h2>
-              <p className="mt-1 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-                Talk to your AI companion — it's here to listen, not to judge. Not a substitute for professional care.
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center gap-2">
-              {SUGGESTED_PROMPTS.map((prompt) => (
-                <button key={prompt} onClick={() => sendContent(prompt)} className="btn-outline text-xs">
-                  {prompt}
-                </button>
-              ))}
+          <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+            <div className="w-full max-w-lg">
+              <div className="rounded-3xl border border-gray-100 bg-gray-50 px-8 py-10 text-center dark:border-gray-800 dark:bg-gray-900/60">
+                <CompanionMascot className="mx-auto h-16 w-[4.5rem]" />
+                <h2 className="mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                  Turn your thoughts into <span className="text-brand-600 dark:text-brand-400">clarity</span>.
+                </h2>
+                <p className="mx-auto mt-2 max-w-sm text-sm text-gray-500 dark:text-gray-400">
+                  Your AI companion is here to listen — not to judge, and not a substitute for
+                  professional care.
+                </p>
+              </div>
+
+              <form
+                onSubmit={handleSend}
+                className="mt-3 rounded-3xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+              >
+                <textarea
+                  rows={2}
+                  className="w-full resize-none bg-transparent px-2 py-1 text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100"
+                  placeholder="What's on your mind?"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleComposerKeyDown}
+                />
+                <div className="mt-1 flex items-center justify-between px-2">
+                  <span className="text-xs text-gray-400">Enter to send</span>
+                  <button
+                    type="submit"
+                    disabled={!draft.trim()}
+                    aria-label="Send message"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <SendIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-6">
+                <p className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                  Suggested
+                </p>
+                <div className="space-y-0.5">
+                  {SUGGESTED_PROMPTS.map(({ text, Icon }) => (
+                    <button
+                      key={text}
+                      onClick={() => sendContent(text)}
+                      className="group flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left text-sm transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-300">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <span className="flex-1 text-gray-700 dark:text-gray-300">{text}</span>
+                      <ArrowRightIcon className="h-4 w-4 -translate-x-1 text-gray-300 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100 dark:text-gray-600" />
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
               <div className="flex items-center gap-3 overflow-hidden">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-                  <SparkleIcon className="h-4 w-4" />
-                </div>
+                <CompanionMascot className="h-8 w-9 shrink-0" />
                 <div className="overflow-hidden">
                   <h2 className="truncate font-semibold text-gray-900 dark:text-gray-100">{activeTitle || "New conversation"}</h2>
                   <p className="text-xs text-gray-400">AI companion &middot; always here to listen</p>
@@ -266,9 +349,9 @@ export default function AIChatPage() {
                 <div className="flex flex-col items-center gap-4 py-10 text-center">
                   <p className="text-sm text-gray-400">No messages yet — say hello.</p>
                   <div className="flex flex-wrap justify-center gap-2">
-                    {SUGGESTED_PROMPTS.map((prompt) => (
-                      <button key={prompt} onClick={() => sendContent(prompt)} className="btn-outline text-xs">
-                        {prompt}
+                    {SUGGESTED_PROMPTS.map(({ text }) => (
+                      <button key={text} onClick={() => sendContent(text)} className="btn-outline text-xs">
+                        {text}
                       </button>
                     ))}
                   </div>
@@ -284,11 +367,14 @@ export default function AIChatPage() {
             </div>
 
             <div className="border-t border-gray-100 p-4 dark:border-gray-800">
-              <form onSubmit={handleSend} className="flex items-end gap-2">
+              <form
+                onSubmit={handleSend}
+                className="flex items-end gap-2 rounded-3xl border border-gray-200 bg-white p-2 pl-4 dark:border-gray-700 dark:bg-gray-900"
+              >
                 <textarea
                   ref={textareaRef}
                   rows={1}
-                  className="input max-h-40 flex-1 resize-none py-2.5"
+                  className="max-h-40 flex-1 resize-none bg-transparent py-2 text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100"
                   placeholder="Type a message... (Enter to send, Shift+Enter for a new line)"
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -299,7 +385,7 @@ export default function AIChatPage() {
                   type="submit"
                   disabled={sending || !draft.trim()}
                   aria-label="Send message"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <SendIcon className="h-4 w-4" />
                 </button>
@@ -321,11 +407,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       transition={{ duration: 0.2 }}
       className={cn("flex items-end gap-2", isUser ? "justify-end" : "justify-start")}
     >
-      {!isUser && (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-          <SparkleIcon className="h-3.5 w-3.5" />
-        </div>
-      )}
+      {!isUser && <CompanionMascot className="h-7 w-8 shrink-0" />}
       <div
         className={cn(
           "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
@@ -366,15 +448,8 @@ function MessageBubble({ message }: { message: ChatMessage }) {
 
 function TypingIndicator() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0 }}
-      className="flex items-end gap-2"
-    >
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 text-white">
-        <SparkleIcon className="h-3.5 w-3.5" />
-      </div>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex items-end gap-2">
+      <CompanionMascot className="h-7 w-8 shrink-0" />
       <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-gray-100 px-4 py-3 dark:bg-gray-800">
         {[0, 1, 2].map((i) => (
           <motion.span
