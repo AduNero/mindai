@@ -88,8 +88,8 @@ export default function ReportsPage() {
                   {
                     label: "Wellness score",
                     data: sorted.map((s) => s.overall_score),
-                    borderColor: "#4f5fee",
-                    backgroundColor: "rgba(79,95,238,0.12)",
+                    borderColor: "#2f6456",
+                    backgroundColor: "rgba(47,100,86,0.12)",
                     fill: true,
                     tension: 0.35,
                   },

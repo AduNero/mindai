@@ -1,13 +1,15 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 
+import { BookIcon, CalendarIcon, ChartIcon, ChatIcon, ClipboardIcon, HeartIcon } from "@/components/common/icons";
+
 const FEATURES = [
-  { emoji: "😊", title: "Mood Tracking", description: "Log your mood in seconds and see how it trends over weeks and months." },
-  { emoji: "📓", title: "Smart Journaling", description: "Write freely — AI sentiment analysis helps surface patterns you might miss." },
-  { emoji: "💬", title: "AI Therapy Chat", description: "Talk things through anytime with an AI companion, with full conversation history." },
-  { emoji: "🧠", title: "Validated Assessments", description: "PHQ-9, GAD-7, stress, burnout, and self-esteem screening — all in one place." },
-  { emoji: "📅", title: "Counseling Appointments", description: "Book, reschedule, or cancel sessions with licensed counselors." },
-  { emoji: "📈", title: "Wellness Score", description: "A single, explainable score combining mood, journaling, sleep, and more." },
+  { Icon: HeartIcon, title: "Mood Tracking", description: "Log your mood in seconds and see how it trends over weeks and months." },
+  { Icon: BookIcon, title: "Smart Journaling", description: "Write freely — AI sentiment analysis helps surface patterns you might miss." },
+  { Icon: ChatIcon, title: "AI Companion Chat", description: "Talk things through anytime with an AI companion, with full conversation history." },
+  { Icon: ClipboardIcon, title: "Validated Assessments", description: "PHQ-9, GAD-7, stress, burnout, and self-esteem screening — all in one place." },
+  { Icon: CalendarIcon, title: "Counseling Appointments", description: "Book, reschedule, or cancel sessions with licensed counselors." },
+  { Icon: ChartIcon, title: "Wellness Score", description: "A single, explainable score combining mood, journaling, sleep, and more." },
 ];
 
 const STEPS = [
@@ -19,23 +21,23 @@ const STEPS = [
 export default function LandingPage() {
   return (
     <div>
-      <section className="relative overflow-hidden bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950">
+      <section className="relative overflow-hidden border-b border-gray-200 bg-paper-50 dark:border-gray-800 dark:bg-paper-950">
         <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.4 }}
             className="mx-auto max-w-3xl text-center"
           >
-            <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-              AI-Powered Mental Wellness
+            <span className="stat-figure badge border border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950 dark:text-brand-300">
+              Not a diagnosis — a daily reading
             </span>
-            <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-6xl dark:text-white">
+            <h1 className="mt-6 text-4xl font-semibold tracking-tight text-gray-900 sm:text-6xl dark:text-white">
               Understand your mind,<br className="hidden sm:block" /> one day at a time.
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600 dark:text-gray-300">
-              MindCare AI helps you track your mood, journal with purpose, and get AI-informed
-              support — so you can spot what's working before it becomes a problem.
+              MindCare AI tracks your mood, journal, and conversations into one explainable
+              Wellness Score — so what's changing is visible before it's hard to manage.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/register" className="btn-primary px-6 py-3 text-base">
@@ -54,20 +56,22 @@ export default function LandingPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Everything you need to stay on top of your mental health</h2>
+          <h2 className="text-3xl font-semibold text-gray-900 dark:text-white">Everything you need to stay on top of your mental health</h2>
           <p className="mt-3 text-gray-500 dark:text-gray-400">One platform for tracking, reflection, AI support, and professional care.</p>
         </div>
         <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.title}
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.05 }}
+              transition={{ duration: 0.35, delay: i * 0.04 }}
               className="card"
             >
-              <div className="text-3xl">{f.emoji}</div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                <f.Icon className="h-5 w-5" />
+              </div>
               <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-gray-100">{f.title}</h3>
               <p className="mt-1.5 text-sm text-gray-500 dark:text-gray-400">{f.description}</p>
             </motion.div>
