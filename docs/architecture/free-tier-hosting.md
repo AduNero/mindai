@@ -26,9 +26,10 @@ for anything beyond a demo.
    generates `DJANGO_SECRET_KEY`/`JWT_SIGNING_KEY` for you.
 3. Render deploys immediately, but several env vars are intentionally left
    blank (`sync: false` in `render.yaml`) since they depend on accounts
-   you haven't created yet — come back and fill these in after steps 2–3
+   you haven't created yet — come back and fill these in per the steps
    below: `CHAT_LLM_API_KEY`, `REDIS_URL`, `CORS_ALLOWED_ORIGINS`,
-   `CSRF_TRUSTED_ORIGINS`.
+   `CSRF_TRUSTED_ORIGINS`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`,
+   `DEFAULT_FROM_EMAIL`.
 4. **The free plan has no Shell access**, so `render.yaml`'s `startCommand`
    chains in everything installation-guide.md normally has you run by
    hand — `migrate`, `collectstatic`, all three seed commands, both
@@ -56,9 +57,28 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Close the loop
+## 4. Email — Gmail SMTP
 
-Back in Render, fill in the env vars that needed the Vercel URL:
+Without this, `EMAIL_BACKEND` falls back to Django's console backend
+(base.py's default) — verification and password-reset emails get
+silently printed to Render's log output instead of actually being sent,
+which just looks like registration is broken.
+
+1. Turn on 2-Step Verification on a Gmail account (required for the next step).
+2. Generate an [App Password](https://myaccount.google.com/apppasswords) — a
+   16-character password scoped to this one use, not your real Gmail password.
+3. In Render, set:
+   - `EMAIL_HOST_USER` = your Gmail address
+   - `EMAIL_HOST_PASSWORD` = the 16-character App Password (no spaces)
+   - `DEFAULT_FROM_EMAIL` = e.g. `MindCare AI <your-address@gmail.com>`
+
+`EMAIL_BACKEND`/`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_USE_TLS` are already set
+in `render.yaml` for Gmail's SMTP — swap them if you'd rather use a
+transactional email service (Resend, Brevo, Mailgun, etc.) instead.
+
+## 5. Close the loop
+
+Back in Render, fill in the remaining env vars that needed the Vercel URL:
 
 - `CORS_ALLOWED_ORIGINS` = `https://your-app.vercel.app`
 - `CSRF_TRUSTED_ORIGINS` = `https://your-app.vercel.app`
