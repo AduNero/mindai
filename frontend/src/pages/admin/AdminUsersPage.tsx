@@ -31,6 +31,17 @@ export default function AdminUsersPage() {
     showToast(`User ${data.is_active ? "activated" : "suspended"}.`, "success");
   };
 
+  const handlePromoteToAdmin = async (user: AdminUser) => {
+    if (!window.confirm(`Give ${user.full_name} (${user.email}) full admin access?`)) return;
+    try {
+      const { data } = await usersApi.admin.updateUser(user.id, { role: "admin" });
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? data : u)));
+      showToast(`${data.full_name} is now an admin.`, "success");
+    } catch {
+      showToast("Couldn't promote this user.", "error");
+    }
+  };
+
   if (loading) return <FullPageSpinner />;
 
   return (
@@ -71,7 +82,12 @@ export default function AdminUsersPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">{u.is_email_verified ? "✓" : "—"}</td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-4 py-3 text-right space-x-3 whitespace-nowrap">
+                  {u.role !== "admin" && (
+                    <button onClick={() => handlePromoteToAdmin(u)} className="text-xs font-medium text-brand-600 hover:underline">
+                      Make admin
+                    </button>
+                  )}
                   <button onClick={() => handleToggleActive(u)} className="text-xs font-medium text-brand-600 hover:underline">
                     {u.is_active ? "Suspend" : "Activate"}
                   </button>

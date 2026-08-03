@@ -6,6 +6,17 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Admins can promote a user to admin
+- The generic admin user-update endpoint
+  (`PATCH /api/v1/users/admin/<id>/`) already allowed setting
+  `role=admin` — it only ever blocked `role=counselor` (which needs the
+  dedicated promotion endpoint to also create a `CounselorProfile`) — but
+  there was no way to trigger it from the UI. Added a "Make admin"
+  action to `AdminUsersPage` (frontend-only change) for any non-admin
+  user, with a confirmation prompt before granting access. Added
+  regression tests covering both the promotion itself and that a
+  non-admin can't do it.
+
 ### Email delivery moved off SMTP to Resend's HTTP API (Render free tier)
 - Root-caused verification/password-reset emails silently never arriving
   on Render: not a timeout — Render's free-tier network has **no

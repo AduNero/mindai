@@ -37,6 +37,20 @@ class TestAdminOnlyEndpoints:
         )
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    def test_admin_can_promote_user_to_admin(self, admin_client, user):
+        response = admin_client.patch(f"/api/v1/users/admin/{user.id}/", {"role": "admin"})
+        assert response.status_code == status.HTTP_200_OK
+
+        user.refresh_from_db()
+        assert user.role == "admin"
+
+    def test_regular_user_cannot_promote_to_admin(self, auth_client, other_user):
+        response = auth_client.patch(f"/api/v1/users/admin/{other_user.id}/", {"role": "admin"})
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+        other_user.refresh_from_db()
+        assert other_user.role != "admin"
+
 
 class TestProfileOwnership:
     def test_user_can_view_own_profile(self, auth_client):
