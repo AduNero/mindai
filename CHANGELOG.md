@@ -6,6 +6,25 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Email verification and password reset switched to OTP codes
+- Registration and forgotten-password now send a 6-digit numeric code by
+  email instead of a clickable link, matching the OTP pattern users
+  expect. `POST /api/v1/auth/verify-email/` and
+  `POST /api/v1/auth/password-reset/confirm/` now take `{email, otp}`
+  (plus `new_password`/`new_password_confirm` for the reset endpoint)
+  instead of a bare `{token}`.
+- `EmailVerificationToken`/`PasswordResetToken.token` now stores the
+  6-digit code rather than a long random link token; codes are no longer
+  globally unique (validated by `user + code` instead) and each token
+  tracks failed-attempt count, locking out further guesses after 5 wrong
+  attempts regardless of expiry. Verification codes expire in 15 minutes,
+  reset codes in 10.
+- Frontend: `RegisterPage` now routes to `VerifyEmailPage` (rewritten as
+  an OTP-entry form with a resend button) instead of straight to login;
+  `ForgotPasswordPage` now offers a follow-up step into
+  `ResetPasswordPage` (rewritten as an email + OTP + new-password form)
+  instead of relying on an emailed link.
+
 ### AI chat re-architecture — LibreChat removed
 - Replaced the LibreChat-based chat integration (Phase 6) with a direct
   integration: `apps.chat.services.llm` calls any OpenAI-API-compatible
