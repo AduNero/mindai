@@ -274,6 +274,13 @@ EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="MindCare AI <no-reply@mindcare.ai>")
+# Without this, smtplib blocks with no timeout at all. On a single
+# synchronous Gunicorn worker (the free-tier hosting path), a stalled SMTP
+# connection — e.g. the host's outbound network can't actually reach
+# EMAIL_HOST — doesn't just fail that one request: it hangs the sole
+# worker until Gunicorn's own timeout watchdog SIGKILLs the process,
+# taking the entire app down for every in-flight request, not just email.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 
 # --- Redis / Celery ---
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
