@@ -3,18 +3,6 @@
 from django.db import migrations, models
 
 
-def delete_stale_tokens(apps, schema_editor):
-    """
-    Old rows hold long link-style tokens (up to 255 chars); the AlterField
-    below narrows the column to 6 chars for OTP codes, which Postgres
-    rejects outright if any existing value is longer. These are one-time,
-    short-lived auth artifacts with no lasting value, so it's safe to just
-    clear them — anyone mid-flow simply requests a fresh code.
-    """
-    apps.get_model('users', 'EmailVerificationToken').objects.all().delete()
-    apps.get_model('users', 'PasswordResetToken').objects.all().delete()
-
-
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -32,7 +20,6 @@ class Migration(migrations.Migration):
             name='attempts',
             field=models.PositiveSmallIntegerField(default=0),
         ),
-        migrations.RunPython(delete_stale_tokens, migrations.RunPython.noop),
         migrations.AlterField(
             model_name='emailverificationtoken',
             name='token',
