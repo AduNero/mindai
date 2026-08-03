@@ -99,17 +99,21 @@ services:
       # Without these, EMAIL_BACKEND falls back to Django's console
       # backend (base.py's default) — verification/password-reset emails
       # get silently printed to Render's log output instead of actually
-      # being sent, which looks like registration is broken.
-      #
-      # This uses Resend's HTTP API rather than SMTP: confirmed live that
-      # Render's free-tier network has no outbound route to SMTP hosts at
-      # all (`OSError: [Errno 101] Network is unreachable` connecting to
-      # smtp.gmail.com:587), while normal HTTPS calls work fine. See
-      # apps.common.email_backends.ResendBackend and
+      # being sent, which looks like registration is broken. A Gmail
+      # account + an App Password (myaccount.google.com/apppasswords,
+      # needs 2-Step Verification on) is the simplest free option — see
       # docs/architecture/free-tier-hosting.md.
       - key: EMAIL_BACKEND
-        value: apps.common.email_backends.ResendBackend
-      - key: RESEND_API_KEY
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false

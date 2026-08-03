@@ -281,10 +281,6 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="MindCare AI <no-reply@mi
 # worker until Gunicorn's own timeout watchdog SIGKILLs the process,
 # taking the entire app down for every in-flight request, not just email.
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
-# Used by apps.common.email_backends.ResendBackend (EMAIL_BACKEND set to
-# it on the Render free-tier path, where raw SMTP has no outbound route
-# at all — see that module's docstring).
-RESEND_API_KEY = env("RESEND_API_KEY", default="")
 
 # --- Redis / Celery ---
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")

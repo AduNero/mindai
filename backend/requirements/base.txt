@@ -34,10 +34,5 @@ reportlab==4.2.0
 # Input sanitization (admin-authored rich text in Resources)
 bleach==6.1.0
 
-# HTTP client — direct calls (apps.common.email_backends.ResendBackend);
-# already an indirect dependency via openai, pinned here since we now
-# depend on it directly too.
-requests>=2.31
-
 # WSGI server
 gunicorn==22.0.0
