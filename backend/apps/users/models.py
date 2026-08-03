@@ -159,53 +159,38 @@ class CounselorProfile(BaseModel):
 
 
 class EmailVerificationToken(BaseModel):
-    """
-    Holds a one-time 6-digit OTP code (in `token`), not a link token — the
-    field name is kept for migration continuity. Codes are scoped to
-    (user, code) rather than globally unique, since a 6-digit space makes
-    global uniqueness both unnecessary and, at scale, collision-prone.
-    """
-
-    MAX_ATTEMPTS = 5
-
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_verification_tokens")
-    token = models.CharField(max_length=6, db_index=True)
+    token = models.CharField(max_length=255, unique=True, db_index=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
-    attempts = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         db_table = "email_verification_tokens"
 
     def is_valid(self):
-        return self.used_at is None and self.attempts < self.MAX_ATTEMPTS and self.expires_at > timezone.now()
+        return self.used_at is None and self.expires_at > timezone.now()
 
     @staticmethod
     def default_expiry():
-        return timezone.now() + timedelta(minutes=15)
+        return timezone.now() + timedelta(hours=24)
 
 
 class PasswordResetToken(BaseModel):
-    """Holds a one-time 6-digit OTP code (in `token`) — see EmailVerificationToken for the naming note."""
-
-    MAX_ATTEMPTS = 5
-
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_tokens")
-    token = models.CharField(max_length=6, db_index=True)
+    token = models.CharField(max_length=255, unique=True, db_index=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
     requested_ip = models.GenericIPAddressField(null=True, blank=True)
-    attempts = models.PositiveSmallIntegerField(default=0)
 
     class Meta:
         db_table = "password_reset_tokens"
 
     def is_valid(self):
-        return self.used_at is None and self.attempts < self.MAX_ATTEMPTS and self.expires_at > timezone.now()
+        return self.used_at is None and self.expires_at > timezone.now()
 
     @staticmethod
     def default_expiry():
-        return timezone.now() + timedelta(minutes=10)
+        return timezone.now() + timedelta(hours=1)
 
 
 class UserSession(BaseModel):

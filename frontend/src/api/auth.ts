@@ -23,8 +23,7 @@ export const authApi = {
 
   logoutAll: () => apiClient.post("/auth/logout-all/"),
 
-  verifyEmail: (email: string, otp: string) =>
-    apiClient.post<{ message: string }>("/auth/verify-email/", { email, otp }),
+  verifyEmail: (token: string) => apiClient.post<{ message: string }>("/auth/verify-email/", { token }),
 
   resendVerification: (email: string) =>
     apiClient.post<{ message: string }>("/auth/resend-verification/", { email }),
@@ -32,10 +31,9 @@ export const authApi = {
   requestPasswordReset: (email: string) =>
     apiClient.post<{ message: string }>("/auth/password-reset/request/", { email }),
 
-  confirmPasswordReset: (email: string, otp: string, new_password: string, new_password_confirm: string) =>
+  confirmPasswordReset: (token: string, new_password: string, new_password_confirm: string) =>
     apiClient.post<{ message: string }>("/auth/password-reset/confirm/", {
-      email,
-      otp,
+      token,
       new_password,
       new_password_confirm,
     }),

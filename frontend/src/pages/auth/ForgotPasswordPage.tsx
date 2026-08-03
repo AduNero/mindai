@@ -1,12 +1,10 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { authApi } from "@/api";
 import { extractErrorMessage } from "@/utils/errors";
 
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
-
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -30,21 +28,12 @@ export default function ForgotPasswordPage() {
     <div className="card animate-slide-up">
       <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reset your password</h1>
       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Enter your email and we'll send you a reset code.
+        Enter your email and we'll send you a reset link.
       </p>
 
       {sent ? (
-        <div className="mt-6 space-y-4">
-          <div className="rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
-            If that account exists, a password reset code has been sent. Check your inbox.
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate(`/reset-password?email=${encodeURIComponent(email)}`)}
-            className="btn-primary w-full"
-          >
-            I have my code
-          </button>
+        <div className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+          If that account exists, a password reset email has been sent. Check your inbox.
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -54,7 +43,7 @@ export default function ForgotPasswordPage() {
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button type="submit" disabled={submitting} className="btn-primary w-full">
-            {submitting ? "Sending..." : "Send reset code"}
+            {submitting ? "Sending..." : "Send reset link"}
           </button>
         </form>
       )}
