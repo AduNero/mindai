@@ -51,6 +51,23 @@ class TestAdminOnlyEndpoints:
         other_user.refresh_from_db()
         assert other_user.role != "admin"
 
+    def test_admin_can_remove_another_admins_access(self, admin_client, user):
+        user.role = "admin"
+        user.save(update_fields=["role"])
+
+        response = admin_client.patch(f"/api/v1/users/admin/{user.id}/", {"role": "user"})
+        assert response.status_code == status.HTTP_200_OK
+
+        user.refresh_from_db()
+        assert user.role == "user"
+
+    def test_admin_cannot_remove_own_admin_access(self, admin_client, admin_user):
+        response = admin_client.patch(f"/api/v1/users/admin/{admin_user.id}/", {"role": "user"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        admin_user.refresh_from_db()
+        assert admin_user.role == "admin"
+
 
 class TestProfileOwnership:
     def test_user_can_view_own_profile(self, auth_client):

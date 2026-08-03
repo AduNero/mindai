@@ -267,3 +267,10 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
                 "Use the counselor promotion endpoint to assign the counselor role."
             )
         return value
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        is_self = request and self.instance and self.instance == request.user
+        if is_self and attrs.get("role") not in (None, Role.ADMIN):
+            raise serializers.ValidationError({"role": "You can't remove your own admin access."})
+        return attrs

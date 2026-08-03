@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 
 import { usersApi } from "@/api";
 import { FullPageSpinner } from "@/components/common/Spinner";
+import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import type { AdminUser } from "@/types";
+import { extractErrorMessage } from "@/utils/errors";
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -37,8 +40,19 @@ export default function AdminUsersPage() {
       const { data } = await usersApi.admin.updateUser(user.id, { role: "admin" });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? data : u)));
       showToast(`${data.full_name} is now an admin.`, "success");
-    } catch {
-      showToast("Couldn't promote this user.", "error");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Couldn't promote this user."), "error");
+    }
+  };
+
+  const handleRemoveAdmin = async (user: AdminUser) => {
+    if (!window.confirm(`Remove admin access from ${user.full_name} (${user.email})?`)) return;
+    try {
+      const { data } = await usersApi.admin.updateUser(user.id, { role: "user" });
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? data : u)));
+      showToast(`Admin access removed from ${data.full_name}.`, "success");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Couldn't remove admin access."), "error");
     }
   };
 
@@ -86,6 +100,11 @@ export default function AdminUsersPage() {
                   {u.role !== "admin" && (
                     <button onClick={() => handlePromoteToAdmin(u)} className="text-xs font-medium text-brand-600 hover:underline">
                       Make admin
+                    </button>
+                  )}
+                  {u.role === "admin" && u.id !== currentUser?.id && (
+                    <button onClick={() => handleRemoveAdmin(u)} className="text-xs font-medium text-red-600 hover:underline">
+                      Remove admin
                     </button>
                   )}
                   <button onClick={() => handleToggleActive(u)} className="text-xs font-medium text-brand-600 hover:underline">

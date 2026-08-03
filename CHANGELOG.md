@@ -6,16 +6,18 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
-### Admins can promote a user to admin
+### Admins can add and remove other admins
 - The generic admin user-update endpoint
   (`PATCH /api/v1/users/admin/<id>/`) already allowed setting
   `role=admin` — it only ever blocked `role=counselor` (which needs the
   dedicated promotion endpoint to also create a `CounselorProfile`) — but
-  there was no way to trigger it from the UI. Added a "Make admin"
-  action to `AdminUsersPage` (frontend-only change) for any non-admin
-  user, with a confirmation prompt before granting access. Added
-  regression tests covering both the promotion itself and that a
-  non-admin can't do it.
+  there was no way to trigger it from the UI. Added "Make admin"/"Remove
+  admin" actions to `AdminUsersPage`, each behind a confirmation prompt.
+- Added a server-side guard (`AdminUserUpdateSerializer.validate`) so an
+  admin can't remove their own admin access and lock themselves out —
+  the frontend also hides "Remove admin" on the signed-in admin's own
+  row, but the real enforcement is server-side. Regression tests cover
+  promotion, demotion, and the self-demotion block.
 
 ### Email delivery moved off SMTP to Resend's HTTP API (Render free tier)
 - Root-caused verification/password-reset emails silently never arriving
