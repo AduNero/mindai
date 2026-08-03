@@ -6,6 +6,29 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Email delivery moved off SMTP to Resend's HTTP API (Render free tier)
+- Root-caused verification/password-reset emails silently never arriving
+  on Render: not a timeout — Render's free-tier network has **no
+  outbound route to SMTP hosts at all**, confirmed live via `OSError:
+  [Errno 101] Network is unreachable` connecting to `smtp.gmail.com:587`.
+  Worse, because Django's SMTP backend has no connection timeout by
+  default, this hung the sole synchronous Gunicorn worker on the
+  free-tier deploy until Gunicorn's own timeout watchdog SIGKILLed it —
+  taking the *entire app* down for every in-flight request, not just the
+  email one. Same failure class as the hung-Redis-connection bug found
+  earlier.
+- Added `EMAIL_TIMEOUT` (`config/settings/base.py`, default 10s) so any
+  future stalled mail connection fails fast instead of hanging the
+  worker.
+- Added `apps.common.email_backends.ResendBackend`, a Django
+  `EMAIL_BACKEND` that sends via Resend's HTTP API (port 443, the same
+  path outbound AI chat calls already use successfully) instead of raw
+  SMTP sockets. `render.yaml`'s free-tier Blueprint now points
+  `EMAIL_BACKEND` at it and takes `RESEND_API_KEY` instead of the old
+  Gmail SMTP vars; see `docs/architecture/free-tier-hosting.md` §4 for
+  setup (the VPS/Docker path is unaffected — its network isn't
+  restricted, so Gmail SMTP there is untouched).
+
 ### AI chat re-architecture — LibreChat removed
 - Replaced the LibreChat-based chat integration (Phase 6) with a direct
   integration: `apps.chat.services.llm` calls any OpenAI-API-compatible
