@@ -6,6 +6,20 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Settle on Resend for Render email — SMTP confirmed non-viable there
+- Confirmed live, a third time (including a deliberate re-test at the
+  user's request), that Render's free-tier network has no outbound
+  route to SMTP hosts at all: `OSError: [Errno 101] Network is
+  unreachable` connecting to `smtp.gmail.com:587`. This is a
+  platform-level restriction, not a credentials/config problem, so SMTP
+  isn't a viable `EMAIL_BACKEND` choice on this host at all.
+  `render.yaml` now points `EMAIL_BACKEND` at
+  `apps.common.email_backends.ResendBackend` (HTTPS, the same path
+  outbound AI chat calls already use successfully) as the settled
+  choice, not an experiment — docs updated to match. The VPS/Docker path
+  is unaffected; its network isn't restricted, so Gmail SMTP works fine
+  there.
+
 ### Fix Vercel build failure and make email-send failures non-fatal
 - `frontend/src/utils/errors.ts` referenced `payload.message`/
   `payload.detail`, which don't exist on `ApiErrorPayload` (the backend's

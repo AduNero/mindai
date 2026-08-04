@@ -101,25 +101,20 @@ services:
       # get silently printed to Render's log output instead of actually
       # being sent, which looks like registration is broken.
       #
-      # Using Gmail SMTP here — note this previously failed live on
-      # Render's free tier with `OSError: [Errno 101] Network is
-      # unreachable` connecting to smtp.gmail.com:587 (the free-tier
-      # network had no outbound route to SMTP hosts at all). Re-testing
-      # by request; if it fails the same way again,
-      # apps.common.email_backends.ResendBackend (HTTP API over 443) is
-      # the known-working fallback — see
-      # docs/architecture/free-tier-hosting.md.
+      # Confirmed live, three separate times, that Render's free-tier
+      # network has no outbound route to SMTP hosts at all — connecting
+      # to smtp.gmail.com:587 fails immediately with `OSError:
+      # [Errno 101] Network is unreachable`, both for the original Gmail
+      # setup and again after deliberately re-testing it. This isn't a
+      # config issue, it's a platform-level restriction, so SMTP is not
+      # a viable backend here at all. Resend's HTTP API (port 443, same
+      # path outbound AI chat calls already use successfully) is the
+      # only backend that's actually verified to work on this host —
+      # see apps.common.email_backends.ResendBackend and
+      # docs/architecture/free-tier-hosting.md §4.
       - key: EMAIL_BACKEND
-        value: django.core.mail.backends.smtp.EmailBackend
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_USE_TLS
-        value: "True"
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
+        value: apps.common.email_backends.ResendBackend
+      - key: RESEND_API_KEY
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "MindCare AI <mindcareai5@gmail.com>"
+        sync: false

@@ -57,35 +57,41 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Email — Gmail SMTP
+## 4. Email — Resend (HTTP API, not SMTP)
 
 Without this, `EMAIL_BACKEND` falls back to Django's console backend
 (base.py's default) — verification and password-reset emails get
 silently printed to Render's log output instead of actually being sent,
 which just looks like registration is broken.
 
-**Known risk on Render's free tier specifically**: an earlier attempt at
-this exact setup failed live with `OSError: [Errno 101] Network is
-unreachable` connecting to `smtp.gmail.com:587` — Render's free-tier
-network appeared to have no outbound route to SMTP hosts at all, while
-normal HTTPS calls worked fine. `EMAIL_TIMEOUT` (`config/settings/base.py`,
-10s) is set regardless of backend, so if that happens again it fails
-fast with a clear error in the logs instead of hanging Gunicorn's sole
-worker and taking the whole app down. If Gmail SMTP doesn't work for
-you here, `apps.common.email_backends.ResendBackend` (HTTP over port
-443, same path outbound AI chat calls use) is the known-working
-fallback — set `EMAIL_BACKEND` to it and follow Resend's setup instead
-(sign up at resend.com, set `RESEND_API_KEY`).
+**SMTP does not work on Render's free tier — confirmed live, three
+separate times** (including a deliberate re-test), always the same way:
+connecting to `smtp.gmail.com:587` fails immediately with `OSError:
+[Errno 101] Network is unreachable`. This is a platform-level network
+restriction, not a credentials or config problem — Render's free-tier
+network simply has no outbound route to SMTP hosts, while normal HTTPS
+calls (port 443) work fine. Don't spend time debugging an SMTP backend
+here; `apps.common.email_backends.ResendBackend` sends over HTTPS
+instead (the same path outbound AI chat calls already use successfully)
+and is the only backend actually verified to work on this host.
 
-1. Turn on 2-Step Verification on the Gmail account (required for the next step).
-2. Generate an [App Password](https://myaccount.google.com/apppasswords) — a
-   16-character password scoped to this one use, not the real Gmail password.
+1. Sign up at [resend.com](https://resend.com) and grab an API key from
+   the dashboard (Resend's free tier: 3,000 emails/month, 100/day).
+2. Without a verified sending domain, Resend only lets you send **from**
+   `onboarding@resend.dev` **to** the email address on your own Resend
+   account — fine for testing, not for real users. To send to arbitrary
+   recipients, verify a domain you control under Domains in the Resend
+   dashboard, then set `DEFAULT_FROM_EMAIL` to an address on it (e.g.
+   `MindCare AI <no-reply@yourdomain.com>`). A Gmail address can't be
+   used as `DEFAULT_FROM_EMAIL` here — Resend can't verify a domain
+   (gmail.com) you don't control the DNS for.
 3. In Render, set:
-   - `EMAIL_HOST_USER` = the Gmail address
-   - `EMAIL_HOST_PASSWORD` = the 16-character App Password (no spaces)
+   - `RESEND_API_KEY` = the API key from step 1
+   - `DEFAULT_FROM_EMAIL` = `MindCare AI <onboarding@resend.dev>` while
+     testing, or your verified-domain address once you have one
 
-`EMAIL_BACKEND`/`EMAIL_HOST`/`EMAIL_PORT`/`EMAIL_USE_TLS`/
-`DEFAULT_FROM_EMAIL` are already set in `render.yaml` for Gmail's SMTP.
+`EMAIL_BACKEND` is already set in `render.yaml` to
+`apps.common.email_backends.ResendBackend`.
 
 ## 5. Close the loop
 
