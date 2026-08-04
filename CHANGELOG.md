@@ -6,6 +6,20 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Prevent admins from suspending their own account
+- The "Make admin"/"Remove admin" work already blocked self-demotion,
+  but the plain Suspend/Activate toggle had no equivalent guard —
+  `handleToggleActive` in `AdminUsersPage` didn't exclude the signed-in
+  admin's own row, and the server-side serializer only checked `role`,
+  not `is_active`. An admin suspending their own account this way locks
+  them out entirely (`is_active=False` blocks login outright).
+  `bootstrap_admin` self-heals the `DJANGO_SUPERUSER_EMAIL` account on
+  every deploy regardless (it unconditionally sets `is_active=True`),
+  but that's a safety net, not a fix. Added the same server-side guard
+  used for self-demotion (`AdminUserUpdateSerializer.validate`) and
+  hidden the button on the admin's own row in the UI. Regression tests
+  cover both the block and that suspending *other* users still works.
+
 ### Settle on Resend for Render email — SMTP confirmed non-viable there
 - Confirmed live, a third time (including a deliberate re-test at the
   user's request), that Render's free-tier network has no outbound

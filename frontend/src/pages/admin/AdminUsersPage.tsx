@@ -107,9 +107,11 @@ export default function AdminUsersPage() {
                       Remove admin
                     </button>
                   )}
-                  <button onClick={() => handleToggleActive(u)} className="text-xs font-medium text-brand-600 hover:underline">
-                    {u.is_active ? "Suspend" : "Activate"}
-                  </button>
+                  {u.id !== currentUser?.id && (
+                    <button onClick={() => handleToggleActive(u)} className="text-xs font-medium text-brand-600 hover:underline">
+                      {u.is_active ? "Suspend" : "Activate"}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

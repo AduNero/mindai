@@ -293,4 +293,6 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         is_self = request and self.instance and self.instance == request.user
         if is_self and attrs.get("role") not in (None, Role.ADMIN):
             raise serializers.ValidationError({"role": "You can't remove your own admin access."})
+        if is_self and attrs.get("is_active") is False:
+            raise serializers.ValidationError({"is_active": "You can't suspend your own account."})
         return attrs

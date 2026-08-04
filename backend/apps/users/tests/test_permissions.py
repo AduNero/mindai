@@ -68,6 +68,20 @@ class TestAdminOnlyEndpoints:
         admin_user.refresh_from_db()
         assert admin_user.role == "admin"
 
+    def test_admin_cannot_suspend_own_account(self, admin_client, admin_user):
+        response = admin_client.patch(f"/api/v1/users/admin/{admin_user.id}/", {"is_active": False})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        admin_user.refresh_from_db()
+        assert admin_user.is_active is True
+
+    def test_admin_can_suspend_another_user(self, admin_client, user):
+        response = admin_client.patch(f"/api/v1/users/admin/{user.id}/", {"is_active": False})
+        assert response.status_code == status.HTTP_200_OK
+
+        user.refresh_from_db()
+        assert user.is_active is False
+
 
 class TestProfileOwnership:
     def test_user_can_view_own_profile(self, auth_client):
