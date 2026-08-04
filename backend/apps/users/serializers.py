@@ -137,7 +137,8 @@ class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class EmailVerificationConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
 
 
 class ResendVerificationSerializer(serializers.Serializer):
@@ -149,7 +150,8 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
     new_password = serializers.CharField(write_only=True)
     new_password_confirm = serializers.CharField(write_only=True)
 

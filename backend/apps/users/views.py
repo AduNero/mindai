@@ -53,8 +53,19 @@ class RegisterView(generics.CreateAPIView):
         send_verification_email.delay(user.email, user.first_name, token.token)
         log_audit_event(AuditAction.PROFILE_UPDATED, user=user, request=request, event="account_created")
 
+        from apps.notifications.models import NotificationChannel, NotificationType
+        from apps.notifications.services import notify
+
+        notify(
+            user,
+            NotificationType.SYSTEM,
+            "Welcome to MindCare AI",
+            "Your account has been created. Check your email for a verification code to get started.",
+            channel=NotificationChannel.IN_APP,
+        )
+
         return Response(
-            {"message": "Account created. Check your email to verify your address.", "user_id": str(user.id)},
+            {"message": "Account created. Check your email for a verification code.", "user_id": str(user.id)},
             status=status.HTTP_201_CREATED,
         )
 
@@ -127,23 +138,36 @@ class LogoutAllView(APIView):
 
 class VerifyEmailView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
 
     def post(self, request):
         serializer = EmailVerificationConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        token_value = serializer.validated_data["token"]
+        email = serializer.validated_data["email"]
+        otp = serializer.validated_data["otp"]
 
         from .models import EmailVerificationToken
 
-        token = EmailVerificationToken.objects.filter(token=token_value).first()
-        if not token or not token.is_valid():
-            return Response({"detail": "Invalid or expired verification token."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=email).first()
+        pending = (
+            EmailVerificationToken.objects.filter(user=user, used_at__isnull=True).order_by("-created_at").first()
+            if user
+            else None
+        )
 
-        user = token.user
+        if not pending or not pending.is_valid():
+            return Response({"detail": "Invalid or expired verification code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if pending.token != otp:
+            pending.attempts += 1
+            pending.save(update_fields=["attempts"])
+            return Response({"detail": "Invalid or expired verification code."}, status=status.HTTP_400_BAD_REQUEST)
+
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
-        token.used_at = timezone.now()
-        token.save(update_fields=["used_at"])
+        pending.used_at = timezone.now()
+        pending.save(update_fields=["used_at"])
 
         log_audit_event(AuditAction.EMAIL_VERIFIED, user=user, request=request)
         return Response({"message": "Email verified successfully."})
@@ -195,20 +219,31 @@ class PasswordResetConfirmView(APIView):
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
 
         from .models import PasswordResetToken
 
-        token = PasswordResetToken.objects.filter(token=serializer.validated_data["token"]).first()
-        if not token or not token.is_valid():
-            return Response({"detail": "Invalid or expired reset token."}, status=status.HTTP_400_BAD_REQUEST)
+        user = User.objects.filter(email__iexact=data["email"]).first()
+        pending = (
+            PasswordResetToken.objects.filter(user=user, used_at__isnull=True).order_by("-created_at").first()
+            if user
+            else None
+        )
 
-        user = token.user
-        user.set_password(serializer.validated_data["new_password"])
+        if not pending or not pending.is_valid():
+            return Response({"detail": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if pending.token != data["otp"]:
+            pending.attempts += 1
+            pending.save(update_fields=["attempts"])
+            return Response({"detail": "Invalid or expired reset code."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(data["new_password"])
         user.failed_login_attempts = 0
         user.locked_until = None
         user.save()
-        token.used_at = timezone.now()
-        token.save(update_fields=["used_at"])
+        pending.used_at = timezone.now()
+        pending.save(update_fields=["used_at"])
 
         # Force re-authentication everywhere after a password reset.
         for outstanding in OutstandingToken.objects.filter(user=user):

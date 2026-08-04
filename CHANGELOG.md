@@ -6,6 +6,28 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Re-added OTP verification, plus an account-created notification
+- Re-introduced OTP-based email verification and password reset (link
+  tokens replaced with 6-digit codes again, same shape as the earlier
+  attempt): `EmailVerificationToken`/`PasswordResetToken.token` narrowed
+  to 6 chars with an `attempts` counter that locks a code out after 5
+  wrong guesses; codes expire in 15/10 minutes. New migration
+  `0003_emailverificationtoken_attempts_and_more.py` builds on top of
+  `0002_fix_token_column_drift` (rather than reviving the old, deleted
+  migration) and clears any pending long-format tokens before narrowing
+  the column, for the same reason `0002_fix_token_column_drift` was
+  needed the first time — verified against a real disposable Postgres
+  container with a stale long token seeded in first.
+- `RegisterView` now also creates an in-app "Welcome to MindCare AI"
+  notification (`apps.notifications.services.notify`,
+  `NotificationType.SYSTEM`) alongside the verification email, forced to
+  the in-app channel only (the verification email already covers the
+  "email" channel, so this avoids sending a redundant second email).
+- Frontend: `RegisterPage` routes into `VerifyEmailPage` (rewritten as
+  an email+code form with a resend button); `ForgotPasswordPage` gets a
+  follow-up step into `ResetPasswordPage` (rewritten as email + code +
+  new password), replacing the emailed-link flow on both pages.
+
 ### Fix live Postgres schema drift left over from the reverted OTP migration
 - Reverting the OTP feature deleted
   `0002_emailverificationtoken_attempts_and_more.py` from the repo, but
