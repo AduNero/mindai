@@ -5,6 +5,10 @@ import type { ApiErrorPayload } from "@/types";
 export function extractErrorMessage(error: unknown, fallback = "Something went wrong."): string {
   if (error instanceof AxiosError) {
     const payload = error.response?.data as ApiErrorPayload | undefined;
+    if (payload?.message) return payload.message;
+    if (payload?.detail) {
+      return typeof payload.detail === "string" ? payload.detail : JSON.stringify(payload.detail);
+    }
     if (payload?.error?.message) return payload.error.message;
     if (error.message) return error.message;
   }

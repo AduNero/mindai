@@ -1,5 +1,8 @@
 from datetime import datetime, timezone as dt_timezone
 
+import logging
+
+from celery.exceptions import CeleryError
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -205,7 +208,10 @@ class PasswordResetRequestView(APIView):
             from apps.common.utils import get_client_ip
 
             token = issue_password_reset_token(user, requested_ip=get_client_ip(request))
-            send_password_reset_email.delay(user.email, user.first_name, token.token)
+            try:
+                send_password_reset_email.delay(user.email, user.first_name, token.token)
+            except CeleryError:
+                logging.exception("Failed to enqueue password reset email for %s", user.email)
             log_audit_event(AuditAction.PASSWORD_RESET_REQUESTED, user=user, request=request)
 
         return Response({"message": "If that account exists, a password reset email has been sent."})

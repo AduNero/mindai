@@ -107,6 +107,18 @@ class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise
 
         user = self.user
+        if not user.is_email_verified:
+            log_audit_event(
+                AuditAction.LOGIN_FAILED,
+                user=user,
+                request=request,
+                reason="email_not_verified",
+            )
+            raise exceptions.AuthenticationFailed(
+                "This account's email address has not been verified.",
+                code="email_not_verified",
+            )
+
         if not user.is_active:
             raise exceptions.AuthenticationFailed("This account has been deactivated.", code="account_inactive")
 

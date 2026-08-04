@@ -142,6 +142,12 @@ class TestLogin:
         response = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_login_rejects_unverified_email(self, api_client, user):
+        user.is_email_verified = False
+        user.save()
+        response = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
 
 class TestLogout:
     def test_logout_blacklists_refresh_token(self, api_client, user):
