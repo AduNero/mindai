@@ -1,8 +1,6 @@
+import logging
 from datetime import datetime, timezone as dt_timezone
 
-import logging
-
-from celery.exceptions import CeleryError
 from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -39,6 +37,25 @@ from .serializers import (
 from .tasks import send_password_reset_email, send_verification_email
 from .tokens import issue_email_verification_token, issue_password_reset_token
 
+logger = logging.getLogger("apps")
+
+
+def _send_email_safely(send_fn, *args):
+    """
+    Email delivery is an external dependency that has already failed
+    outright on Render's free tier once (SMTP unreachable) — under
+    CELERY_TASK_ALWAYS_EAGER, `.delay()` runs inline and re-raises
+    whatever the real send failure is, which would otherwise 500 the
+    whole request (registration, resend, password-reset) just because
+    the notification email didn't go out. The token is already issued
+    either way, so the user can still retry "Resend code" once delivery
+    is fixed rather than being blocked outright.
+    """
+    try:
+        send_fn.delay(*args)
+    except Exception:  # noqa: BLE001 - any email backend failure shouldn't fail the request
+        logger.exception("Failed to send email via %s", send_fn.__name__)
+
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
@@ -53,7 +70,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
 
         token = issue_email_verification_token(user)
-        send_verification_email.delay(user.email, user.first_name, token.token)
+        _send_email_safely(send_verification_email, user.email, user.first_name, token.token)
         log_audit_event(AuditAction.PROFILE_UPDATED, user=user, request=request, event="account_created")
 
         from apps.notifications.models import NotificationChannel, NotificationType
@@ -188,7 +205,7 @@ class ResendVerificationEmailView(APIView):
 
         if user and not user.is_email_verified:
             token = issue_email_verification_token(user)
-            send_verification_email.delay(user.email, user.first_name, token.token)
+            _send_email_safely(send_verification_email, user.email, user.first_name, token.token)
 
         # Always return a generic message — do not reveal whether the email exists.
         return Response({"message": "If that account exists and is unverified, a new email has been sent."})
@@ -208,10 +225,7 @@ class PasswordResetRequestView(APIView):
             from apps.common.utils import get_client_ip
 
             token = issue_password_reset_token(user, requested_ip=get_client_ip(request))
-            try:
-                send_password_reset_email.delay(user.email, user.first_name, token.token)
-            except CeleryError:
-                logging.exception("Failed to enqueue password reset email for %s", user.email)
+            _send_email_safely(send_password_reset_email, user.email, user.first_name, token.token)
             log_audit_event(AuditAction.PASSWORD_RESET_REQUESTED, user=user, request=request)
 
         return Response({"message": "If that account exists, a password reset email has been sent."})

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
@@ -14,6 +15,8 @@ from apps.common.validators import validate_image_file
 
 from .models import CounselorProfile, Profile, Role, User, UserSession
 from .tasks import send_account_locked_email
+
+logger = logging.getLogger("apps")
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -77,7 +80,10 @@ class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):
             user.locked_until = timezone.now() + timezone.timedelta(
                 minutes=settings.ACCOUNT_LOCKOUT_DURATION_MINUTES
             )
-            send_account_locked_email.delay(user.email, user.first_name, user.locked_until.isoformat())
+            try:
+                send_account_locked_email.delay(user.email, user.first_name, user.locked_until.isoformat())
+            except Exception:  # noqa: BLE001 - an email backend failure shouldn't break the login attempt itself
+                logger.exception("Failed to send account-locked email to %s", user.email)
         user.save(update_fields=["failed_login_attempts", "locked_until"])
 
     def validate(self, attrs):

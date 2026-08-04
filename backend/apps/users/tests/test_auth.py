@@ -28,6 +28,32 @@ class TestRegistration:
         assert len(mailoutbox) == 1
         assert "verify" in mailoutbox[0].subject.lower()
 
+    def test_register_succeeds_even_if_email_send_fails(self, api_client):
+        """
+        Regression test: registration must not 500 just because the
+        verification email failed to send (e.g. Render's free tier being
+        unable to reach smtp.gmail.com at all). The account and its OTP
+        token should still be created — the user can "Resend code" once
+        delivery is fixed instead of being blocked from signing up at all.
+        """
+        from unittest.mock import patch
+
+        with patch("apps.users.tasks.send_mail", side_effect=OSError("Network is unreachable")):
+            response = api_client.post(
+                "/api/v1/auth/register/",
+                {
+                    "email": "resilient@example.com",
+                    "first_name": "Res",
+                    "last_name": "Ilient",
+                    "password": "CorrectHorse42!",
+                    "password_confirm": "CorrectHorse42!",
+                },
+            )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        user = User.objects.get(email="resilient@example.com")
+        assert EmailVerificationToken.objects.filter(user=user).exists()
+
     def test_register_creates_account_created_notification(self, api_client):
         from apps.notifications.models import Notification, NotificationType
 
@@ -102,6 +128,25 @@ class TestLogin:
         for _ in range(settings.ACCOUNT_LOCKOUT_THRESHOLD):
             api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "wrong-password"})
 
+        user.refresh_from_db()
+        assert user.is_locked is True
+
+    def test_lockout_triggering_response_ok_even_if_email_send_fails(self, api_client, user):
+        """
+        Regression test: the request that trips the lockout threshold
+        must still return a normal 401 (and actually record the lockout)
+        even if send_account_locked_email fails outright — not 500 just
+        because notifying the user about their own lockout didn't work.
+        """
+        from unittest.mock import patch
+
+        with patch("apps.users.tasks.send_mail", side_effect=OSError("Network is unreachable")):
+            for _ in range(settings.ACCOUNT_LOCKOUT_THRESHOLD):
+                response = api_client.post(
+                    "/api/v1/auth/login/", {"email": user.email, "password": "wrong-password"}
+                )
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
         user.refresh_from_db()
         assert user.is_locked is True
 

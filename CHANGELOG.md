@@ -6,6 +6,36 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Fix Vercel build failure and make email-send failures non-fatal
+- `frontend/src/utils/errors.ts` referenced `payload.message`/
+  `payload.detail`, which don't exist on `ApiErrorPayload` (the backend's
+  `custom_exception_handler` always wraps errors as
+  `{success, error: {code, message, details}}` — there's no bare
+  top-level `message`/`detail` case to handle). Since `npm run build` is
+  `tsc -b && vite build`, this failed the type check and broke the whole
+  Vercel deploy, not just one page. Reverted to the `error.message`-only
+  path.
+- Registration, resend-verification, and password-reset-request all
+  called their email task's `.delay()` unwrapped; under
+  `CELERY_TASK_ALWAYS_EAGER=True` that runs inline and re-raises the
+  real send failure, so a broken email backend (already confirmed to
+  happen — Render's free tier being unable to reach smtp.gmail.com at
+  all) 500'd the entire request instead of just failing to send. Worse
+  combined with the newly-added "unverified accounts can't log in"
+  check: if the verification email never sends, the account is stuck
+  with no way to verify and no way to log in. Added
+  `_send_email_safely()` (`apps/users/views.py`) so these three now
+  catch and log any send failure but still complete the request/return
+  the token — the user can retry "Resend code" once delivery is fixed.
+  Applied the same fix to `send_account_locked_email` in the login
+  serializer (was also unwrapped, would have 500'd the *lockout-tripping
+  login attempt itself*). Replaced the dead `except CeleryError` guard
+  that was already in `PasswordResetRequestView` — under eager mode the
+  real exception is never actually a `CeleryError`, so it never caught
+  anything.
+- Added regression tests confirming registration and the lockout-tripping
+  login attempt both still succeed when the email backend raises.
+
 ### Fix 0003 migration colliding with a leftover index on live Postgres
 - `0003_emailverificationtoken_attempts_and_more` failed on Render with
   `ProgrammingError: relation "email_verification_tokens_token_d2313ce1"
