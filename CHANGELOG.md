@@ -6,6 +6,26 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Fix 0003 migration colliding with a leftover index on live Postgres
+- `0003_emailverificationtoken_attempts_and_more` failed on Render with
+  `ProgrammingError: relation "email_verification_tokens_token_d2313ce1"
+  already exists`. Root cause: the *original* OTP migration (deleted
+  when OTP was reverted) had already run this same unique→plain-index
+  transition on Render once, dropping the 0001 unique constraint and
+  creating a plain btree index. Deleting that migration file only
+  erased Django's record of the transition, not the transition itself —
+  and Django computes index names deterministically from table+column,
+  not migration history, so the new AlterField tried to recreate that
+  exact same name. Added a Postgres-only pre-step that discovers and
+  drops whatever unique constraint/index currently exists on `token`
+  before the AlterField runs, so it doesn't matter which of the two
+  possible history states a given database is actually in. Verified by
+  reproducing Render's exact current schema (post-`0002_fix_token_
+  column_drift`, pre-`0003`) against a real disposable Postgres
+  container and confirming the migration now applies cleanly there —
+  and confirmed the sqlite/test path (which never had the drift) is
+  unaffected.
+
 ### Re-added OTP verification, plus an account-created notification
 - Re-introduced OTP-based email verification and password reset (link
   tokens replaced with 6-digit codes again, same shape as the earlier
