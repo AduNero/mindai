@@ -6,6 +6,24 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Fix live Postgres schema drift left over from the reverted OTP migration
+- Reverting the OTP feature deleted
+  `0002_emailverificationtoken_attempts_and_more.py` from the repo, but
+  that only removes Django's record of how to *reverse* it — it doesn't
+  touch a database the migration was already applied to. Render's live
+  Postgres was stuck with `token varchar(6)` and a stray `attempts`
+  column from that migration forever, since there was no longer a
+  migration file to run in reverse. Once link-based tokens (48+ chars)
+  started being generated again, every insert failed with
+  `django.db.utils.DataError: value too long for type character
+  varying(6)`.
+- Added `0002_fix_token_column_drift.py`: a new forward migration
+  (Postgres-only; sqlite/test DBs never had the drift) that widens
+  `token` back to `varchar(255)` and drops the stray `attempts` column.
+  Reproduced the exact failure and verified the fix against a real
+  disposable Postgres container — same `DataError` before the migration,
+  clean insert of a 48-char token after.
+
 ### Render email switched back to Gmail SMTP (by request, re-testing)
 - `render.yaml`'s `EMAIL_BACKEND` reverted from
   `apps.common.email_backends.ResendBackend` to
