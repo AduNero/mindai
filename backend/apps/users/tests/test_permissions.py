@@ -82,6 +82,27 @@ class TestAdminOnlyEndpoints:
         user.refresh_from_db()
         assert user.is_active is False
 
+    def test_admin_can_delete_another_user(self, admin_client, user):
+        from apps.users.models import User
+
+        response = admin_client.delete(f"/api/v1/users/admin/{user.id}/")
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not User.objects.filter(id=user.id).exists()
+
+    def test_admin_cannot_delete_own_account_from_admin_panel(self, admin_client, admin_user):
+        from apps.users.models import User
+
+        response = admin_client.delete(f"/api/v1/users/admin/{admin_user.id}/")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert User.objects.filter(id=admin_user.id).exists()
+
+    def test_regular_user_cannot_delete_another_user(self, auth_client, other_user):
+        from apps.users.models import User
+
+        response = auth_client.delete(f"/api/v1/users/admin/{other_user.id}/")
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert User.objects.filter(id=other_user.id).exists()
+
 
 class TestProfileOwnership:
     def test_user_can_view_own_profile(self, auth_client):

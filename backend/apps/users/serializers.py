@@ -198,6 +198,18 @@ class ChangePasswordSerializer(serializers.Serializer):
         return attrs
 
 
+class DeleteAccountSerializer(serializers.Serializer):
+    """Requires the current password so a hijacked session/CSRF-style call can't delete an account silently."""
+
+    password = serializers.CharField(write_only=True)
+
+    def validate_password(self, value):
+        user = self.context["request"].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Incorrect password.")
+        return value
+
+
 class ProfileSerializer(serializers.ModelSerializer):
     user = UserSerializer(read_only=True)
 

@@ -50,4 +50,6 @@ export const authApi = {
   listSessions: () => apiClient.get<UserSession[]>("/auth/sessions/"),
 
   revokeSession: (id: string) => apiClient.delete(`/auth/sessions/${id}/`),
+
+  deleteAccount: (password: string) => apiClient.post("/auth/account/delete/", { password }),
 };

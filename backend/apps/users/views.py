@@ -3,6 +3,7 @@ from datetime import datetime, timezone as dt_timezone
 
 from django.utils import timezone
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -24,6 +25,7 @@ from .serializers import (
     AdminUserUpdateSerializer,
     ChangePasswordSerializer,
     CounselorProfileSerializer,
+    DeleteAccountSerializer,
     EmailVerificationConfirmSerializer,
     MindCareTokenObtainPairSerializer,
     PasswordResetConfirmSerializer,
@@ -288,6 +290,29 @@ class ChangePasswordView(APIView):
         return Response({"message": "Password changed successfully."})
 
 
+class DeleteAccountView(APIView):
+    """
+    Self-service account deletion. Requires re-entering the current
+    password (see DeleteAccountSerializer) so a hijacked session or a
+    stray CSRF-style call can't wipe an account silently. The audit log
+    entry is written before the delete and survives it — AuditLog.user
+    uses on_delete=SET_NULL — while every other user-owned table
+    (moods, journals, chat, assessments, sessions, etc.) cascades, so
+    this genuinely removes the account's data, not just the login.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = DeleteAccountSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        log_audit_event(AuditAction.ACCOUNT_DELETED, user=user, request=request, email=user.email)
+        user.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class UserSessionListView(generics.ListAPIView):
     """A user typically has a handful of active sessions — unpaginated so the Settings page gets them all in one call."""
 
@@ -350,7 +375,7 @@ class AdminUserListView(generics.ListAPIView):
     queryset = User.objects.all().order_by("-created_at")
 
 
-class AdminUserDetailView(generics.RetrieveUpdateAPIView):
+class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     permission_classes = [IsAdmin]
     lookup_field = "id"
@@ -374,6 +399,29 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
             description=f"Changed {before} -> role={user.role}, is_active={user.is_active}",
         )
         log_audit_event(AuditAction.ADMIN_ACTION, user=self.request.user, request=self.request, target_user=str(user.id))
+
+    def perform_destroy(self, instance):
+        from apps.admin_panel.models import AdminActionLog
+
+        if instance == self.request.user:
+            raise ValidationError({"detail": "You can't delete your own account from here."})
+
+        target_id, target_email = str(instance.id), instance.email
+        log_audit_event(
+            AuditAction.ACCOUNT_DELETED,
+            user=self.request.user,
+            request=self.request,
+            deleted_user_id=target_id,
+            deleted_user_email=target_email,
+        )
+        instance.delete()
+        AdminActionLog.objects.create(
+            admin_user=self.request.user,
+            action="user_deleted",
+            target_model="User",
+            target_id=target_id,
+            description=f"Deleted user {target_email}",
+        )
 
 
 class CounselorListView(generics.ListAPIView):

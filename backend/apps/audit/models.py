@@ -16,6 +16,7 @@ class AuditAction(models.TextChoices):
     DATA_EXPORTED = "data_exported", "Data Exported"
     PERMISSION_DENIED = "permission_denied", "Permission Denied"
     ACCOUNT_LOCKED = "account_locked", "Account Locked"
+    ACCOUNT_DELETED = "account_deleted", "Account Deleted"
     ADMIN_ACTION = "admin_action", "Administrative Action"
     RISK_DETECTED = "risk_detected", "Crisis/Risk Language Detected"
 

@@ -56,6 +56,23 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleDeleteUser = async (user: AdminUser) => {
+    if (
+      !window.confirm(
+        `Permanently delete ${user.full_name} (${user.email})? This removes all their data and can't be undone.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await usersApi.admin.deleteUser(user.id);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      showToast(`${user.full_name}'s account has been deleted.`, "success");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Couldn't delete this user."), "error");
+    }
+  };
+
   if (loading) return <FullPageSpinner />;
 
   return (
@@ -110,6 +127,11 @@ export default function AdminUsersPage() {
                   {u.id !== currentUser?.id && (
                     <button onClick={() => handleToggleActive(u)} className="text-xs font-medium text-brand-600 hover:underline">
                       {u.is_active ? "Suspend" : "Activate"}
+                    </button>
+                  )}
+                  {u.id !== currentUser?.id && (
+                    <button onClick={() => handleDeleteUser(u)} className="text-xs font-medium text-red-600 hover:underline">
+                      Delete
                     </button>
                   )}
                 </td>

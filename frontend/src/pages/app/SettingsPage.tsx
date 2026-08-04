@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { authApi, notificationsApi } from "@/api";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +21,7 @@ export default function SettingsPage() {
   const { logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [prefs, setPrefs] = useState<NotificationPreference | null>(null);
   const [sessions, setSessions] = useState<UserSession[]>([]);
@@ -29,6 +31,9 @@ export default function SettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     Promise.all([notificationsApi.getPreferences(), authApi.listSessions()])
@@ -74,6 +79,28 @@ export default function SettingsPage() {
   const handleLogoutAll = async () => {
     await authApi.logoutAll();
     await logout();
+  };
+
+  const handleDeleteAccount = async (e: FormEvent) => {
+    e.preventDefault();
+    if (
+      !window.confirm(
+        "This permanently deletes your account and all your data (mood logs, journals, chat history, assessments, appointments). This can't be undone. Continue?"
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await authApi.deleteAccount(deletePassword);
+      showToast("Your account has been deleted.", "success");
+      await logout();
+      navigate("/");
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Couldn't delete your account."), "error");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) return null;
@@ -185,6 +212,31 @@ export default function SettingsPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      <section className="card border border-red-200 dark:border-red-900">
+        <h2 className="font-semibold text-red-600 dark:text-red-400">Danger zone</h2>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Permanently delete your account and all your data (mood logs, journals, chat history,
+          assessments, appointments). This can't be undone.
+        </p>
+        <form onSubmit={handleDeleteAccount} className="mt-4 space-y-3">
+          <input
+            type="password"
+            required
+            placeholder="Confirm your password"
+            className="input"
+            value={deletePassword}
+            onChange={(e) => setDeletePassword(e.target.value)}
+          />
+          <button
+            type="submit"
+            disabled={deleting}
+            className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {deleting ? "Deleting..." : "Delete my account"}
+          </button>
+        </form>
       </section>
     </div>
   );

@@ -6,6 +6,30 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Account deletion — self-service and admin-initiated
+- `POST /api/v1/auth/account/delete/`: authenticated users can delete
+  their own account, gated by re-entering their current password
+  (`DeleteAccountSerializer`) so a hijacked session can't wipe an
+  account silently. Every user-owned table (moods, journals, chat,
+  assessments, wellness, sessions, notifications, generated reports)
+  already used `on_delete=CASCADE` to `User`, so this genuinely removes
+  the account's data, not just the login — verified with a test seeding
+  a `MoodEntry` and confirming it's gone after. `AuditLog.user` uses
+  `on_delete=SET_NULL`, so the deletion event itself survives in the
+  audit trail (with the deleted account's email in `metadata`) even
+  though the FK it pointed to no longer exists.
+- `AdminUserDetailView` now supports `DELETE` for admins to remove any
+  other user's account, logged to `AdminActionLog` the same way
+  role/status changes already are. Blocked for an admin's own account
+  (`ValidationError` — self-service deletion should go through the
+  password-confirmed flow above, not a table-row click) — same
+  self-action-guard pattern as the existing self-demotion/
+  self-suspension checks.
+- Frontend: `SettingsPage` gets a "Danger zone" section (password
+  confirm + a `window.confirm` guard) for self-service deletion;
+  `AdminUsersPage` gets a "Delete" action per row (hidden on the
+  signed-in admin's own row, confirm-gated).
+
 ### Give unverified users a way to verify from the login screen
 - Accounts that registered before email delivery actually worked (or
   whose original code expired) had no way to discover that

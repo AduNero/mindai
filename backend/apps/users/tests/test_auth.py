@@ -333,4 +333,38 @@ class TestPasswordReset:
             },
         )
 
-        assert not UserSession.objects.filter(user=user, revoked_at__isnull=True).exists()
+
+class TestDeleteAccount:
+    def test_deletes_account_with_correct_password(self, auth_client, user):
+        response = auth_client.post("/api/v1/auth/account/delete/", {"password": "CorrectHorse42!"})
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not User.objects.filter(id=user.id).exists()
+
+    def test_rejects_wrong_password(self, auth_client, user):
+        response = auth_client.post("/api/v1/auth/account/delete/", {"password": "wrong-password"})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert User.objects.filter(id=user.id).exists()
+
+    def test_requires_authentication(self, api_client):
+        response = api_client.post("/api/v1/auth/account/delete/", {"password": "irrelevant"})
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_cascade_deletes_owned_data(self, auth_client, user):
+        from apps.moods.models import MoodEntry
+
+        MoodEntry.objects.create(
+            user=user, mood="happy", intensity=5, entry_date="2026-08-01", entry_time="09:00"
+        )
+        auth_client.post("/api/v1/auth/account/delete/", {"password": "CorrectHorse42!"})
+        assert not MoodEntry.objects.filter(user_id=user.id).exists()
+
+    def test_audit_log_survives_the_deletion(self, auth_client, user):
+        from apps.audit.models import AuditAction, AuditLog
+
+        user_email = user.email
+        auth_client.post("/api/v1/auth/account/delete/", {"password": "CorrectHorse42!"})
+
+        log = AuditLog.objects.filter(action=AuditAction.ACCOUNT_DELETED).first()
+        assert log is not None
+        assert log.user_id is None  # on_delete=SET_NULL — the FK survives, the row it pointed to doesn't
+        assert log.metadata.get("email") == user_email

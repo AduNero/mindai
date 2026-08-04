@@ -13,6 +13,7 @@ urlpatterns = [
     path("password-reset/request/", views.PasswordResetRequestView.as_view(), name="auth-password-reset-request"),
     path("password-reset/confirm/", views.PasswordResetConfirmView.as_view(), name="auth-password-reset-confirm"),
     path("password/change/", views.ChangePasswordView.as_view(), name="auth-password-change"),
+    path("account/delete/", views.DeleteAccountView.as_view(), name="auth-account-delete"),
     path("sessions/", views.UserSessionListView.as_view(), name="auth-sessions"),
     path("sessions/<uuid:session_id>/", views.RevokeSessionView.as_view(), name="auth-session-revoke"),
 ]

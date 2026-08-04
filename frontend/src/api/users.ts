@@ -35,6 +35,8 @@ export const usersApi = {
     updateUser: (id: string, payload: { role?: string; is_active?: boolean }) =>
       apiClient.patch<AdminUser>(`/users/admin/${id}/`, payload),
 
+    deleteUser: (id: string) => apiClient.delete(`/users/admin/${id}/`),
+
     listCounselors: (params?: Record<string, string | number>) =>
       apiClient.get<Paginated<CounselorProfile>>("/users/admin/counselors/", { params }),
 
