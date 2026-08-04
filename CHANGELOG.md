@@ -6,6 +6,17 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Roll back Render email to Resend, by request
+- `render.yaml`'s `EMAIL_BACKEND` switched back to
+  `apps.common.email_backends.ResendBackend` after Brevo also didn't
+  work out (following SendGrid's signup fraud check disabling that
+  account outright). Without a verified domain, Resend's sandbox mode
+  only delivers to the email on the Resend account itself — same
+  limitation as before switching away from it; a verified domain
+  (Domains tab in Resend) is what actually lifts that restriction.
+  SendGridBackend/BrevoBackend both stay available as alternatives.
+
+
 ### Switch Render email to Brevo — SendGrid's signup fraud check blocked the account
 - SendGrid's free-tier signup flagged and disabled the account before
   it could even be used to send anything — a gate on their side, not a

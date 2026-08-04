@@ -109,21 +109,20 @@ services:
       # 443, same path outbound AI chat calls already use successfully)
       # instead.
       #
-      # Brevo rather than Resend/SendGrid specifically: Resend's sandbox
-      # mode (no verified domain) only delivers to the email on the
-      # Resend account itself, and there's no domain to verify here;
-      # SendGrid's free-tier signup fraud check flagged and disabled a
-      # fresh account outright before it could even be used — a gate on
-      # their side, not a config problem. Brevo's free tier (300
-      # emails/day) also supports verifying a single sender email (no
-      # DNS/domain needed) without that friction. See
-      # apps.common.email_backends.BrevoBackend (ResendBackend/
-      # SendGridBackend are also still available, untouched, if either
-      # ends up working better for you) and
+      # Back on Resend by request, after both SendGrid (signup fraud
+      # check disabled the account outright) and Brevo also didn't pan
+      # out. Without a verified domain, Resend's sandbox mode only
+      # delivers to the email address on the Resend account itself —
+      # every other recipient gets rejected outright — so this only
+      # actually reaches real users once a domain is verified under
+      # Domains in the Resend dashboard (then set DEFAULT_FROM_EMAIL to
+      # an address on it). SendGridBackend/BrevoBackend both stay
+      # available, untouched, as alternatives. See
+      # apps.common.email_backends.ResendBackend and
       # docs/architecture/free-tier-hosting.md §4.
       - key: EMAIL_BACKEND
-        value: apps.common.email_backends.BrevoBackend
-      - key: BREVO_API_KEY
+        value: apps.common.email_backends.ResendBackend
+      - key: RESEND_API_KEY
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
