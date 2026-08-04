@@ -101,15 +101,25 @@ services:
       # get silently printed to Render's log output instead of actually
       # being sent, which looks like registration is broken.
       #
-      # This uses Resend's HTTP API rather than SMTP: confirmed live that
-      # Render's free-tier network has no outbound route to SMTP hosts at
-      # all (`OSError: [Errno 101] Network is unreachable` connecting to
-      # smtp.gmail.com:587), while normal HTTPS calls work fine. See
-      # apps.common.email_backends.ResendBackend and
+      # Using Gmail SMTP here — note this previously failed live on
+      # Render's free tier with `OSError: [Errno 101] Network is
+      # unreachable` connecting to smtp.gmail.com:587 (the free-tier
+      # network had no outbound route to SMTP hosts at all). Re-testing
+      # by request; if it fails the same way again,
+      # apps.common.email_backends.ResendBackend (HTTP API over 443) is
+      # the known-working fallback — see
       # docs/architecture/free-tier-hosting.md.
       - key: EMAIL_BACKEND
-        value: apps.common.email_backends.ResendBackend
-      - key: RESEND_API_KEY
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        sync: false
+        value: "MindCare AI <mindcareai5@gmail.com>"

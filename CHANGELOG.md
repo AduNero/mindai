@@ -6,6 +6,19 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Render email switched back to Gmail SMTP (by request, re-testing)
+- `render.yaml`'s `EMAIL_BACKEND` reverted from
+  `apps.common.email_backends.ResendBackend` to
+  `django.core.mail.backends.smtp.EmailBackend` against
+  `smtp.gmail.com:587`, at the user's request, to re-test whether Gmail
+  SMTP actually works from Render (it previously failed live with
+  `OSError: [Errno 101] Network is unreachable`). `EMAIL_TIMEOUT`
+  (added earlier) still applies regardless of backend, so a repeat
+  failure surfaces as a fast, clear error instead of hanging Gunicorn's
+  sole worker. `ResendBackend` code is untouched and still available as
+  the known-working fallback if this fails again — see
+  `docs/architecture/free-tier-hosting.md` §4.
+
 ### Admins can add and remove other admins
 - The generic admin user-update endpoint
   (`PATCH /api/v1/users/admin/<id>/`) already allowed setting
