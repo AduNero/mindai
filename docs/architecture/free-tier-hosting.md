@@ -57,7 +57,7 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Email — Resend (HTTP API, not SMTP)
+## 4. Email — SendGrid (HTTP API, not SMTP)
 
 Without this, `EMAIL_BACKEND` falls back to Django's console backend
 (base.py's default) — verification and password-reset emails get
@@ -65,33 +65,38 @@ silently printed to Render's log output instead of actually being sent,
 which just looks like registration is broken.
 
 **SMTP does not work on Render's free tier — confirmed live, three
-separate times** (including a deliberate re-test), always the same way:
-connecting to `smtp.gmail.com:587` fails immediately with `OSError:
-[Errno 101] Network is unreachable`. This is a platform-level network
-restriction, not a credentials or config problem — Render's free-tier
-network simply has no outbound route to SMTP hosts, while normal HTTPS
-calls (port 443) work fine. Don't spend time debugging an SMTP backend
-here; `apps.common.email_backends.ResendBackend` sends over HTTPS
-instead (the same path outbound AI chat calls already use successfully)
-and is the only backend actually verified to work on this host.
+separate times**, always the same way: connecting to
+`smtp.gmail.com:587` fails immediately with `OSError: [Errno 101]
+Network is unreachable`. This is a platform-level network restriction,
+not a credentials or config problem — Render's free-tier network simply
+has no outbound route to SMTP hosts, while normal HTTPS calls (port
+443) work fine. Don't spend time debugging an SMTP backend here.
 
-1. Sign up at [resend.com](https://resend.com) and grab an API key from
-   the dashboard (Resend's free tier: 3,000 emails/month, 100/day).
-2. Without a verified sending domain, Resend only lets you send **from**
-   `onboarding@resend.dev` **to** the email address on your own Resend
-   account — fine for testing, not for real users. To send to arbitrary
-   recipients, verify a domain you control under Domains in the Resend
-   dashboard, then set `DEFAULT_FROM_EMAIL` to an address on it (e.g.
-   `MindCare AI <no-reply@yourdomain.com>`). A Gmail address can't be
-   used as `DEFAULT_FROM_EMAIL` here — Resend can't verify a domain
-   (gmail.com) you don't control the DNS for.
-3. In Render, set:
-   - `RESEND_API_KEY` = the API key from step 1
-   - `DEFAULT_FROM_EMAIL` = `MindCare AI <onboarding@resend.dev>` while
-     testing, or your verified-domain address once you have one
+Two HTTP-API backends are available — pick based on whether you own a
+domain:
 
-`EMAIL_BACKEND` is already set in `render.yaml` to
-`apps.common.email_backends.ResendBackend`.
+- **No domain** (this project's case): SendGrid's "Single Sender
+  Verification" verifies one plain email address (click a link SendGrid
+  emails you — a Gmail address works fine) with no DNS/domain ownership
+  needed, and lets that address send to *any* recipient. This is what
+  `render.yaml` is set up for by default
+  (`apps.common.email_backends.SendGridBackend`).
+  1. Sign up at [sendgrid.com](https://sendgrid.com) (free tier: 100
+     emails/day).
+  2. Settings → Sender Authentication → **Verify a Single Sender** →
+     enter the email address you want to send from → click the
+     verification link SendGrid emails to it.
+  3. Settings → API Keys → create one (Mail Send permission is enough).
+  4. In Render, set `SENDGRID_API_KEY` = that key, and
+     `DEFAULT_FROM_EMAIL` = `MindCare AI <the-verified-address>` (must
+     match the address verified in step 2 exactly, or SendGrid rejects
+     the send).
+- **Own a domain**: `apps.common.email_backends.ResendBackend` is also
+  available — Resend's sandbox mode (no domain) only delivers to the
+  email on your own Resend account, rejecting every other recipient
+  outright, so it needs a verified domain (Domains tab in Resend) to
+  send to real users. Swap `EMAIL_BACKEND` to it and set
+  `RESEND_API_KEY` instead if that fits better.
 
 ## 5. Close the loop
 

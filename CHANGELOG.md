@@ -6,6 +6,21 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Switch Render email to SendGrid — Resend's sandbox blocks real recipients
+- Root cause of "users can't receive verification email": Resend's
+  sandbox mode (no verified domain) only delivers to the email address
+  on the Resend account itself — every other recipient is rejected
+  outright by their API. There's no domain available here to verify and
+  lift that restriction.
+- Added `apps.common.email_backends.SendGridBackend`, using SendGrid's
+  "Single Sender Verification" instead — verifies one plain email
+  address (no DNS/domain ownership needed) and lets it send to any
+  recipient. `render.yaml`'s `EMAIL_BACKEND` now points at it;
+  `ResendBackend` stays available (untouched) as the better option for
+  anyone who *does* own a domain. See
+  `docs/architecture/free-tier-hosting.md` §4 for setup on both.
+
+
 ### Account deletion — self-service and admin-initiated
 - `POST /api/v1/auth/account/delete/`: authenticated users can delete
   their own account, gated by re-entering their current password
