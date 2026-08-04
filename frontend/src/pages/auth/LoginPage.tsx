@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { extractErrorMessage } from "@/utils/errors";
+import { extractErrorCode, extractErrorMessage } from "@/utils/errors";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -15,18 +15,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setNeedsVerification(false);
     try {
       const user = await login(email, password, rememberMe);
       showToast(`Welcome back, ${user.first_name}!`, "success");
       navigate(user.role === "admin" ? "/admin" : from, { replace: true });
     } catch (err) {
-      showToast(extractErrorMessage(err, "Login failed. Check your credentials."), "error");
+      if (extractErrorCode(err) === "email_not_verified") {
+        setNeedsVerification(true);
+      } else {
+        showToast(extractErrorMessage(err, "Login failed. Check your credentials."), "error");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -67,6 +73,18 @@ export default function LoginPage() {
             Forgot password?
           </Link>
         </div>
+        {needsVerification && (
+          <div className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            This account's email hasn't been verified yet.{" "}
+            <Link
+              to={`/verify-email?email=${encodeURIComponent(email)}`}
+              className="font-medium underline"
+            >
+              Verify it now
+            </Link>
+            .
+          </div>
+        )}
         <button type="submit" disabled={submitting} className="btn-primary w-full">
           {submitting ? "Logging in..." : "Log in"}
         </button>

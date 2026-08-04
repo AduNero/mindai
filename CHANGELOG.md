@@ -6,6 +6,19 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Give unverified users a way to verify from the login screen
+- Accounts that registered before email delivery actually worked (or
+  whose original code expired) had no way to discover that
+  "resend code" exists — login just returned a generic 401 with no path
+  forward. `custom_exception_handler` now surfaces the DRF-level `code`
+  passed to exceptions like `AuthenticationFailed("...",
+  code="email_not_verified")` as `error.details.code` in the response,
+  instead of discarding it. `LoginPage` checks for
+  `email_not_verified` specifically and shows a "Verify it now" link
+  straight to `/verify-email?email=...` (pre-filled, where the existing
+  "Resend code" button issues a fresh OTP) instead of a dead-end error
+  message.
+
 ### Prevent admins from suspending their own account
 - The "Make admin"/"Remove admin" work already blocked self-demotion,
   but the plain Suspend/Activate toggle had no equivalent guard —

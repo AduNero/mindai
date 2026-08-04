@@ -11,3 +11,19 @@ export function extractErrorMessage(error: unknown, fallback = "Something went w
   if (error instanceof Error) return error.message;
   return fallback;
 }
+
+/**
+ * Machine-readable reason code set on some backend errors (e.g.
+ * AuthenticationFailed("...", code="email_not_verified")) — lets the UI
+ * branch on a stable value instead of matching the message text.
+ */
+export function extractErrorCode(error: unknown): string | undefined {
+  if (error instanceof AxiosError) {
+    const payload = error.response?.data as ApiErrorPayload | undefined;
+    const details = payload?.error?.details;
+    if (details && typeof details === "object" && "code" in details) {
+      return String((details as { code: unknown }).code);
+    }
+  }
+  return undefined;
+}

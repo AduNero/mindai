@@ -193,6 +193,20 @@ class TestLogin:
         response = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_login_rejects_unverified_email_with_machine_readable_reason(self, api_client, user):
+        """
+        Regression test: the frontend needs a stable way to detect "you
+        need to verify your email" specifically (vs. wrong password,
+        lockout, etc.) so it can link straight to the verify page instead
+        of just showing a dead-end error message — accounts that
+        registered before email delivery worked have no other way to
+        discover that "resend code" exists.
+        """
+        user.is_email_verified = False
+        user.save()
+        response = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})
+        assert response.data["error"]["details"] == {"code": "email_not_verified"}
+
 
 class TestLogout:
     def test_logout_blacklists_refresh_token(self, api_client, user):

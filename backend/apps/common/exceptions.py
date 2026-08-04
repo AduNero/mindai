@@ -19,11 +19,18 @@ def custom_exception_handler(exc, context):
         logger.exception("Unhandled exception in %s", context.get("view"))
         return response
 
+    # DRF's ErrorDetail carries the `code=` passed to the exception (e.g.
+    # AuthenticationFailed("...", code="email_not_verified")) — surfacing
+    # it lets the frontend branch on a stable machine-readable reason
+    # instead of matching on the (translatable, editable) message text.
+    raw_detail = getattr(exc, "detail", None)
+    reason_code = raw_detail.code if hasattr(raw_detail, "code") else None
+
     detail = response.data
     message = "Request failed."
     if isinstance(detail, dict) and "detail" in detail and len(detail) == 1:
         message = str(detail["detail"])
-        details = None
+        details = {"code": reason_code} if reason_code else None
     else:
         details = detail
         if isinstance(detail, dict) and detail:
