@@ -123,3 +123,62 @@ class SendGridBackend(BaseEmailBackend):
                     raise
 
         return sent
+
+
+class BrevoBackend(BaseEmailBackend):
+    """
+    Sends mail via Brevo's (formerly Sendinblue) HTTP API — another
+    no-domain-needed alternative, for when a provider's own signup/fraud
+    checks block an account rather than anything about this app's setup
+    (SendGrid's free-tier signup flagged and disabled a fresh account
+    outright before it could even be used — not a code problem, just
+    that provider's gate). Brevo also supports verifying a single sender
+    email (no DNS/domain ownership needed) that can then send to any
+    recipient.
+    """
+
+    api_url = "https://api.brevo.com/v3/smtp/email"
+
+    def send_messages(self, email_messages):
+        if not email_messages:
+            return 0
+
+        api_key = getattr(settings, "BREVO_API_KEY", "")
+        if not api_key:
+            if not self.fail_silently:
+                raise ValueError("BREVO_API_KEY is not set.")
+            return 0
+
+        sent = 0
+        for message in email_messages:
+            from_name, from_email = parseaddr(message.from_email)
+            sender = {"email": from_email}
+            if from_name:
+                sender["name"] = from_name
+
+            payload = {
+                "sender": sender,
+                "to": [{"email": recipient} for recipient in message.to],
+                "subject": message.subject,
+                "textContent": message.body,
+            }
+            if message.cc:
+                payload["cc"] = [{"email": r} for r in message.cc]
+            if message.bcc:
+                payload["bcc"] = [{"email": r} for r in message.bcc]
+
+            try:
+                response = requests.post(
+                    self.api_url,
+                    json=payload,
+                    headers={"api-key": api_key, "Content-Type": "application/json"},
+                    timeout=10,
+                )
+                response.raise_for_status()
+                sent += 1
+            except requests.RequestException:
+                logger.exception("Brevo send failed: subject=%r to=%r", message.subject, message.to)
+                if not self.fail_silently:
+                    raise
+
+        return sent

@@ -107,17 +107,23 @@ services:
       # [Errno 101] Network is unreachable`. SMTP is not a viable
       # backend here at all, so this uses an HTTP-API provider (port
       # 443, same path outbound AI chat calls already use successfully)
-      # instead. SendGrid rather than Resend specifically: Resend's
-      # sandbox mode (no verified domain) only delivers to the email
-      # address on the Resend account itself — every other recipient is
-      # rejected outright — and there's no domain to verify here.
-      # SendGrid's "Single Sender Verification" verifies one plain email
-      # address (no DNS/domain ownership needed) and lets it send to any
-      # recipient. See apps.common.email_backends.SendGridBackend and
+      # instead.
+      #
+      # Brevo rather than Resend/SendGrid specifically: Resend's sandbox
+      # mode (no verified domain) only delivers to the email on the
+      # Resend account itself, and there's no domain to verify here;
+      # SendGrid's free-tier signup fraud check flagged and disabled a
+      # fresh account outright before it could even be used — a gate on
+      # their side, not a config problem. Brevo's free tier (300
+      # emails/day) also supports verifying a single sender email (no
+      # DNS/domain needed) without that friction. See
+      # apps.common.email_backends.BrevoBackend (ResendBackend/
+      # SendGridBackend are also still available, untouched, if either
+      # ends up working better for you) and
       # docs/architecture/free-tier-hosting.md §4.
       - key: EMAIL_BACKEND
-        value: apps.common.email_backends.SendGridBackend
-      - key: SENDGRID_API_KEY
+        value: apps.common.email_backends.BrevoBackend
+      - key: BREVO_API_KEY
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false

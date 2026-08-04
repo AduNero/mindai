@@ -6,6 +6,19 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Switch Render email to Brevo — SendGrid's signup fraud check blocked the account
+- SendGrid's free-tier signup flagged and disabled the account before
+  it could even be used to send anything — a gate on their side, not a
+  config or code problem.
+- Added `apps.common.email_backends.BrevoBackend` (same shape as
+  Resend/SendGrid: single-sender verification, no domain/DNS needed,
+  sends to any recipient once verified). `render.yaml`'s
+  `EMAIL_BACKEND` now points at it by default; `ResendBackend` and
+  `SendGridBackend` both stay available, untouched, as alternatives.
+  Docs updated with setup steps for all three and guidance on which to
+  reach for.
+
+
 ### Switch Render email to SendGrid — Resend's sandbox blocks real recipients
 - Root cause of "users can't receive verification email": Resend's
   sandbox mode (no verified domain) only delivers to the email address

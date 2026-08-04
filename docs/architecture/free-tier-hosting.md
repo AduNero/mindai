@@ -57,7 +57,7 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Email — SendGrid (HTTP API, not SMTP)
+## 4. Email — Brevo (HTTP API, not SMTP)
 
 Without this, `EMAIL_BACKEND` falls back to Django's console backend
 (base.py's default) — verification and password-reset emails get
@@ -72,31 +72,34 @@ not a credentials or config problem — Render's free-tier network simply
 has no outbound route to SMTP hosts, while normal HTTPS calls (port
 443) work fine. Don't spend time debugging an SMTP backend here.
 
-Two HTTP-API backends are available — pick based on whether you own a
-domain:
+Three HTTP-API backends are available in `apps/common/email_backends.py`
+— which one to use depends on what you have access to:
 
-- **No domain** (this project's case): SendGrid's "Single Sender
-  Verification" verifies one plain email address (click a link SendGrid
-  emails you — a Gmail address works fine) with no DNS/domain ownership
-  needed, and lets that address send to *any* recipient. This is what
-  `render.yaml` is set up for by default
-  (`apps.common.email_backends.SendGridBackend`).
-  1. Sign up at [sendgrid.com](https://sendgrid.com) (free tier: 100
+- **No domain, default choice** (this project's case):
+  `apps.common.email_backends.BrevoBackend`, what `render.yaml` is set
+  up for by default. Brevo's "single sender" verification confirms one
+  plain email address (click a link they email you — a Gmail address
+  works fine) with no DNS/domain ownership needed, and lets that
+  address send to *any* recipient.
+  1. Sign up at [brevo.com](https://brevo.com) (free tier: 300
      emails/day).
-  2. Settings → Sender Authentication → **Verify a Single Sender** →
-     enter the email address you want to send from → click the
-     verification link SendGrid emails to it.
-  3. Settings → API Keys → create one (Mail Send permission is enough).
-  4. In Render, set `SENDGRID_API_KEY` = that key, and
-     `DEFAULT_FROM_EMAIL` = `MindCare AI <the-verified-address>` (must
-     match the address verified in step 2 exactly, or SendGrid rejects
-     the send).
-- **Own a domain**: `apps.common.email_backends.ResendBackend` is also
-  available — Resend's sandbox mode (no domain) only delivers to the
-  email on your own Resend account, rejecting every other recipient
-  outright, so it needs a verified domain (Domains tab in Resend) to
-  send to real users. Swap `EMAIL_BACKEND` to it and set
-  `RESEND_API_KEY` instead if that fits better.
+  2. Settings (gear icon) → Senders, Domains & Dedicated IPs → **Senders**
+     → add the email address you want to send from → click the
+     verification link Brevo emails to it.
+  3. Settings → SMTP & API → API Keys → **Generate a new API key**.
+  4. In Render, set `BREVO_API_KEY` = that key, and `DEFAULT_FROM_EMAIL`
+     = `MindCare AI <the-verified-address>` (must match the address
+     verified in step 2 exactly, or Brevo rejects the send).
+- **No domain, alternative**: `SendGridBackend` works the same way
+  (single sender verification, `SENDGRID_API_KEY`) — but their
+  free-tier signup fraud check has been known to flag and disable fresh
+  accounts outright before they can even be used. Worth trying if
+  Brevo's signup doesn't go through for you either, otherwise skip it.
+- **Own a domain**: `ResendBackend` — Resend's sandbox mode (no domain)
+  only delivers to the email on your own Resend account, rejecting
+  every other recipient outright, so it needs a verified domain
+  (Domains tab in Resend) to send to real users. Swap `EMAIL_BACKEND`
+  to it and set `RESEND_API_KEY` instead if that fits better.
 
 ## 5. Close the loop
 
