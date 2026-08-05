@@ -104,25 +104,26 @@ services:
       # Confirmed live, three separate times, that Render's free-tier
       # network has no outbound route to SMTP hosts at all — connecting
       # to smtp.gmail.com:587 fails immediately with `OSError:
-      # [Errno 101] Network is unreachable`. SMTP is not a viable
-      # backend here at all, so this uses an HTTP-API provider (port
-      # 443, same path outbound AI chat calls already use successfully)
-      # instead.
-      #
-      # Back on Resend by request, after both SendGrid (signup fraud
-      # check disabled the account outright) and Brevo also didn't pan
-      # out. Without a verified domain, Resend's sandbox mode only
-      # delivers to the email address on the Resend account itself —
-      # every other recipient gets rejected outright — so this only
-      # actually reaches real users once a domain is verified under
-      # Domains in the Resend dashboard (then set DEFAULT_FROM_EMAIL to
-      # an address on it). SendGridBackend/BrevoBackend both stay
-      # available, untouched, as alternatives. See
-      # apps.common.email_backends.ResendBackend and
+      # [Errno 101] Network is unreachable`. That's a network-level
+      # block on Render's side, not anything specific to Gmail, so this
+      # is expected to fail the exact same way — kept as-is by explicit
+      # request anyway. If it does fail identically, the working
+      # options remain the HTTP-API backends in
+      # apps/common/email_backends.py: ResendBackend (needs a verified
+      # domain to reach real users), or SendGridBackend/BrevoBackend
+      # (no domain needed, single-sender verification) — see
       # docs/architecture/free-tier-hosting.md §4.
       - key: EMAIL_BACKEND
-        value: apps.common.email_backends.ResendBackend
-      - key: RESEND_API_KEY
+        value: django.core.mail.backends.smtp.EmailBackend
+      - key: EMAIL_HOST
+        value: smtp.zoho.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false

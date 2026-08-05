@@ -6,6 +6,20 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Try Zoho SMTP for Render email, by request (expected to fail)
+- `render.yaml`'s `EMAIL_BACKEND` switched to Django's built-in SMTP
+  backend pointed at `smtp.zoho.com`, at the user's explicit request —
+  no code change needed, Django's SMTP backend works with any host.
+  Flagged before making the change: Render's free-tier network has
+  already been confirmed, three separate times, to have no outbound
+  route to SMTP hosts *at all* (`OSError: [Errno 101] Network is
+  unreachable` connecting to Gmail) — a network-level block on Render's
+  side, not anything Gmail-specific, so Zoho is expected to fail
+  identically. The working HTTP-API backends
+  (Resend/SendGrid/Brevo, in `apps/common/email_backends.py`) are
+  untouched and ready to switch back to.
+
+
 ### Roll back Render email to Resend, by request
 - `render.yaml`'s `EMAIL_BACKEND` switched back to
   `apps.common.email_backends.ResendBackend` after Brevo also didn't

@@ -57,7 +57,7 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Email — Resend (HTTP API, not SMTP)
+## 4. Email — Zoho SMTP (expected to fail — see below)
 
 Without this, `EMAIL_BACKEND` falls back to Django's console backend
 (base.py's default) — verification and password-reset emails get
@@ -65,40 +65,30 @@ silently printed to Render's log output instead of actually being sent,
 which just looks like registration is broken.
 
 **SMTP does not work on Render's free tier — confirmed live, three
-separate times**, always the same way: connecting to
+separate times with Gmail**, always the same way: connecting to
 `smtp.gmail.com:587` fails immediately with `OSError: [Errno 101]
-Network is unreachable`. This is a platform-level network restriction,
-not a credentials or config problem — Render's free-tier network simply
-has no outbound route to SMTP hosts, while normal HTTPS calls (port
-443) work fine. Don't spend time debugging an SMTP backend here.
+Network is unreachable`. This is a platform-level network restriction —
+Render's free-tier network has no outbound route to SMTP hosts at all,
+regardless of provider — not a Gmail-specific or credentials problem.
+`render.yaml` currently points at `smtp.zoho.com` by request; expect
+the identical failure. If/when it does fail the same way, three
+HTTP-API backends in `apps/common/email_backends.py` are the options
+that actually work there (normal HTTPS calls, port 443, are not
+blocked):
 
-Three HTTP-API backends are available in `apps/common/email_backends.py`
-— which one to use depends on what you have access to. `render.yaml` is
-currently set up for Resend:
+- **No domain**: `SendGridBackend`/`BrevoBackend` support single-sender
+  verification (confirm one plain email address, no DNS/domain
+  ownership needed, then send to any recipient). Note SendGrid's
+  free-tier signup fraud check has been known to flag and disable fresh
+  accounts outright before they can even be used; Brevo is the more
+  reliable no-domain option so far.
+- **Own a domain**: `ResendBackend` — without a verified domain its
+  sandbox mode only delivers to the email on your own Resend account,
+  rejecting every other recipient outright, so it needs a verified
+  domain (Domains tab in Resend) to reach real users.
 
-- **Own a domain — default choice**:
-  `apps.common.email_backends.ResendBackend`. Without a verified
-  domain, Resend's sandbox mode only lets you send **from**
-  `onboarding@resend.dev` **to the email address on your own Resend
-  account** — every other recipient is rejected outright. To actually
-  reach real users, verify a domain you control:
-  1. Sign up at [resend.com](https://resend.com) (free tier: 3,000
-     emails/month, 100/day).
-  2. Domains tab → add your domain → add the SPF/DKIM DNS records it
-     gives you at your domain registrar → wait for verification.
-  3. API Keys tab → create one.
-  4. In Render, set `RESEND_API_KEY` = that key, and `DEFAULT_FROM_EMAIL`
-     = an address on your verified domain (e.g. `MindCare AI
-     <no-reply@yourdomain.com>`) — or `MindCare AI
-     <onboarding@resend.dev>` while testing without a domain yet (only
-     reaches your own Resend account email until one's verified).
-- **No domain**: `SendGridBackend`/`BrevoBackend` both support
-  single-sender verification (confirm one plain email address, no
-  DNS/domain ownership needed, then send to any recipient) as
-  alternatives — set `EMAIL_BACKEND` to whichever and its matching
-  `*_API_KEY`. Note SendGrid's free-tier signup fraud check has been
-  known to flag and disable fresh accounts outright before they can
-  even be used.
+Set `EMAIL_BACKEND` to whichever and its matching `*_API_KEY` in
+Render's Environment tab to switch.
 
 ## 5. Close the loop
 
