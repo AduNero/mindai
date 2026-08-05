@@ -104,26 +104,20 @@ services:
       # Confirmed live, three separate times, that Render's free-tier
       # network has no outbound route to SMTP hosts at all — connecting
       # to smtp.gmail.com:587 fails immediately with `OSError:
-      # [Errno 101] Network is unreachable`. That's a network-level
-      # block on Render's side, not anything specific to Gmail, so this
-      # is expected to fail the exact same way — kept as-is by explicit
-      # request anyway. If it does fail identically, the working
-      # options remain the HTTP-API backends in
-      # apps/common/email_backends.py: ResendBackend (needs a verified
-      # domain to reach real users), or SendGridBackend/BrevoBackend
-      # (no domain needed, single-sender verification) — see
+      # [Errno 101] Network is unreachable`. Zoho SMTP hit the same wall
+      # (network-level block on Render's side, not provider-specific).
+      # Bird.com was investigated too — its no-domain sandbox
+      # (onboarding@messagebird.dev) turns out to have the identical
+      # restriction as Resend's: delivers only to your own verified
+      # workspace, rejects everyone else with a 422 — so it wouldn't
+      # have solved anything either. Back on Brevo: no domain needed
+      # (single-sender verification), and it's the option that hasn't
+      # been ruled out by an actual confirmed failure yet. See
+      # apps.common.email_backends.BrevoBackend and
       # docs/architecture/free-tier-hosting.md §4.
       - key: EMAIL_BACKEND
-        value: django.core.mail.backends.smtp.EmailBackend
-      - key: EMAIL_HOST
-        value: smtp.zoho.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_USE_TLS
-        value: "True"
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
+        value: apps.common.email_backends.BrevoBackend
+      - key: BREVO_API_KEY
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false

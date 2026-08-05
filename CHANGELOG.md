@@ -6,6 +6,22 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Back to Brevo for Render email; ruled out Bird.com
+- Zoho SMTP confirmed to fail the same way Gmail did
+  (`OSError: [Errno 101] Network is unreachable` — Render's free-tier
+  network blocks outbound SMTP entirely, not provider-specific).
+- Investigated Bird.com as a no-domain alternative before building
+  anything against it: its shared onboarding sender
+  (`onboarding@messagebird.dev`) only delivers to verified members of
+  your own workspace, rejecting every other recipient with a 422 —
+  functionally identical to Resend's sandbox restriction, so it
+  wouldn't have solved the "real users can't receive email" problem.
+  Not implemented.
+- `render.yaml`'s `EMAIL_BACKEND` is back to
+  `apps.common.email_backends.BrevoBackend` (already built/tested,
+  no code changes needed).
+
+
 ### Try Zoho SMTP for Render email, by request (expected to fail)
 - `render.yaml`'s `EMAIL_BACKEND` switched to Django's built-in SMTP
   backend pointed at `smtp.zoho.com`, at the user's explicit request —

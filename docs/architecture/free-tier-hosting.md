@@ -57,31 +57,44 @@ for anything beyond a demo.
 3. Deploy. `frontend/vercel.json` handles the SPA rewrite so client-side
    routes (React Router) don't 404 on refresh.
 
-## 4. Email — Zoho SMTP (expected to fail — see below)
+## 4. Email — Brevo (HTTP API, not SMTP)
 
 Without this, `EMAIL_BACKEND` falls back to Django's console backend
 (base.py's default) — verification and password-reset emails get
 silently printed to Render's log output instead of actually being sent,
 which just looks like registration is broken.
 
-**SMTP does not work on Render's free tier — confirmed live, three
-separate times with Gmail**, always the same way: connecting to
-`smtp.gmail.com:587` fails immediately with `OSError: [Errno 101]
-Network is unreachable`. This is a platform-level network restriction —
-Render's free-tier network has no outbound route to SMTP hosts at all,
-regardless of provider — not a Gmail-specific or credentials problem.
-`render.yaml` currently points at `smtp.zoho.com` by request; expect
-the identical failure. If/when it does fail the same way, three
-HTTP-API backends in `apps/common/email_backends.py` are the options
-that actually work there (normal HTTPS calls, port 443, are not
-blocked):
+**SMTP does not work on Render's free tier**, confirmed live with both
+Gmail and Zoho, always the same way: connecting fails immediately with
+`OSError: [Errno 101] Network is unreachable`. This is a platform-level
+network restriction — Render's free-tier network has no outbound route
+to SMTP hosts at all, regardless of provider — not a credentials or
+provider-specific problem. HTTP-API backends in
+`apps/common/email_backends.py` are the options that actually work
+there (normal HTTPS calls, port 443, are not blocked). Which one
+depends on whether you have a domain to verify:
 
-- **No domain**: `SendGridBackend`/`BrevoBackend` support single-sender
-  verification (confirm one plain email address, no DNS/domain
-  ownership needed, then send to any recipient). Note SendGrid's
-  free-tier signup fraud check has been known to flag and disable fresh
-  accounts outright before they can even be used; Brevo is the more
-  reliable no-domain option so far.
+- **No domain — default choice**: `apps.common.email_backends.BrevoBackend`,
+  what `render.yaml` is set up for. Brevo's single-sender verification
+  confirms one plain email address (click a link they email you — a
+  Gmail address works fine) with no DNS/domain ownership needed, and
+  lets that address send to *any* recipient.
+  1. Sign up at [brevo.com](https://brevo.com) (free tier: 300
+     emails/day).
+  2. Settings (gear icon) → Senders, Domains & Dedicated IPs →
+     **Senders** → add the email address you want to send from → click
+     the verification link Brevo emails to it.
+  3. Settings → SMTP & API → API Keys → **Generate a new API key**.
+  4. In Render, set `BREVO_API_KEY` = that key, and `DEFAULT_FROM_EMAIL`
+     = `MindCare AI <the-verified-address>` (must match the address
+     verified in step 2 exactly, or Brevo rejects the send).
+  - `SendGridBackend` works the same way (`SENDGRID_API_KEY`) as a
+    fallback, but their free-tier signup fraud check has been known to
+    flag and disable fresh accounts outright before they can even be
+    used. Bird.com was also investigated — its no-domain sandbox
+    (`onboarding@messagebird.dev`) turned out to have the identical
+    restriction as Resend's sandbox (delivers only to your own verified
+    workspace, rejects everyone else), so it wasn't added.
 - **Own a domain**: `ResendBackend` — without a verified domain its
   sandbox mode only delivers to the email on your own Resend account,
   rejecting every other recipient outright, so it needs a verified
