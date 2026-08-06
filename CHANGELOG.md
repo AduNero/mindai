@@ -6,6 +6,34 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Fix AI Chat page on mobile
+- The chat page was genuinely broken below the `md` breakpoint: the
+  session list and the active conversation were both `grid-cols-1`
+  stacked into the same fixed-height container, squishing two full
+  panes (list + messages + composer) into one narrow column instead of
+  showing either at a usable size.
+- Now behaves like a normal mobile messaging app: the list and the
+  active chat share one screen, only one visible at a time
+  (`mobileShowChat` state), with a back button (`md:hidden`) in the
+  chat header to return to the list. Both panes still render side by
+  side unconditionally from `md` upward — desktop is unaffected.
+  Deleting a session from the list no longer jumps mobile users
+  straight into a different chat out from under them.
+- Switched the pane height from `100vh` to `100dvh` — mobile browsers'
+  address-bar show/hide otherwise makes `100vh` an unreliable value,
+  a common real cause of a chat composer getting clipped off-screen.
+- Tightened padding/message-bubble width and hid secondary label text
+  (button captions, subtitle) at narrow widths so more of the screen
+  goes to actual content.
+- Verified live in a real (non-headless) browser at a 375px mobile
+  viewport via Playwright against the local dev stack: list view, chat
+  view with working back button, and back-to-list all screenshotted
+  and confirmed correct. Also discovered and fixed, in the process,
+  that the local dev backend Docker image had drifted out of date
+  against `requirements/base.txt` (missing `requests` and, as of this
+  session, `google-auth`) and rebuilt it.
+
+
 ### Remove the Pricing page
 - Deleted `PricingPage.tsx`, its route, and its links from the public
   navbar and footer.

@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { chatApi } from "@/api";
 import { FullPageSpinner } from "@/components/common/Spinner";
 import {
+  ArrowLeftIcon,
   ArrowRightIcon,
   ChatIcon,
   ClipboardIcon,
@@ -81,6 +82,11 @@ export default function AIChatPage() {
   const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState(false);
+  // On mobile, the session list and the active chat share one screen —
+  // only one is visible at a time. Defaults to the list (like any
+  // messaging app), independent of `activeId`, so loading a session in
+  // the background on first load doesn't jump straight past it.
+  const [mobileShowChat, setMobileShowChat] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -93,7 +99,7 @@ export default function AIChatPage() {
   useEffect(() => {
     loadSessions()
       .then((results) => {
-        if (results.length > 0) selectSession(results[0].id);
+        if (results.length > 0) loadSessionMessages(results[0].id);
       })
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,11 +116,16 @@ export default function AIChatPage() {
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
   }, [draft]);
 
-  const selectSession = async (id: string) => {
+  const loadSessionMessages = async (id: string) => {
     setActiveId(id);
     const { data } = await chatApi.getSession(id);
     setMessages(data.messages);
     setActiveTitle(data.title);
+  };
+
+  const selectSession = async (id: string) => {
+    await loadSessionMessages(id);
+    setMobileShowChat(true);
   };
 
   const handleNewSession = async () => {
@@ -124,6 +135,7 @@ export default function AIChatPage() {
     setMessages([]);
     setActiveTitle(data.title);
     setDraft("");
+    setMobileShowChat(true);
     textareaRef.current?.focus();
   };
 
@@ -135,7 +147,9 @@ export default function AIChatPage() {
     setSessions(remaining);
     if (activeId === id) {
       if (remaining.length > 0) {
-        selectSession(remaining[0].id);
+        // Not selectSession — deleting from the list shouldn't also jump
+        // straight into a different chat out from under the user.
+        loadSessionMessages(remaining[0].id);
       } else {
         setActiveId(null);
         setMessages([]);
@@ -213,9 +227,11 @@ export default function AIChatPage() {
   if (loading) return <FullPageSpinner />;
 
   return (
-    <div className="grid h-[calc(100vh-8.5rem)] grid-cols-1 gap-4 overflow-hidden md:grid-cols-[300px_1fr]">
-      {/* Sidebar */}
-      <div className="card flex flex-col overflow-hidden !p-0">
+    <div className="grid h-[calc(100dvh-8.5rem)] grid-cols-1 gap-4 overflow-hidden md:grid-cols-[300px_1fr]">
+      {/* Sidebar — on mobile this and the chat pane below share one screen;
+          only one shows at a time, switched via mobileShowChat. Both
+          always render side by side from md upward. */}
+      <div className={cn("card flex-col overflow-hidden !p-0", mobileShowChat ? "hidden md:flex" : "flex")}>
         <div className="border-b border-gray-100 p-4 dark:border-gray-800">
           <div className="mb-3 flex items-center gap-2">
             <CompanionMascot className="h-8 w-9" />
@@ -266,11 +282,11 @@ export default function AIChatPage() {
       </div>
 
       {/* Main pane */}
-      <div className="card flex flex-col overflow-hidden !p-0">
+      <div className={cn("card flex-col overflow-hidden !p-0", mobileShowChat ? "flex" : "hidden md:flex")}>
         {!activeId ? (
-          <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+          <div className="flex flex-1 items-center justify-center overflow-y-auto p-4 sm:p-6">
             <div className="w-full max-w-lg">
-              <div className="rounded-3xl border border-gray-100 bg-gray-50 px-8 py-10 text-center dark:border-gray-800 dark:bg-gray-900/60">
+              <div className="rounded-3xl border border-gray-100 bg-gray-50 px-5 py-8 text-center dark:border-gray-800 dark:bg-gray-900/60 sm:px-8 sm:py-10">
                 <CompanionMascot className="mx-auto h-16 w-[4.5rem]" />
                 <h2 className="mt-4 text-2xl font-semibold text-gray-900 dark:text-gray-100">
                   Turn your thoughts into <span className="text-brand-600 dark:text-brand-400">clarity</span>.
@@ -330,21 +346,28 @@ export default function AIChatPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5 dark:border-gray-800">
-              <div className="flex items-center gap-3 overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-100 px-3 py-3.5 sm:px-5 dark:border-gray-800">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                <button
+                  onClick={() => setMobileShowChat(false)}
+                  aria-label="Back to conversations"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 md:hidden dark:text-gray-400 dark:hover:bg-gray-800"
+                >
+                  <ArrowLeftIcon className="h-4 w-4" />
+                </button>
                 <CompanionMascot className="h-8 w-9 shrink-0" />
-                <div className="overflow-hidden">
+                <div className="min-w-0 overflow-hidden">
                   <h2 className="truncate font-semibold text-gray-900 dark:text-gray-100">{activeTitle || "New conversation"}</h2>
-                  <p className="text-xs text-gray-400">AI companion &middot; always here to listen</p>
+                  <p className="hidden text-xs text-gray-400 sm:block">AI companion &middot; always here to listen</p>
                 </div>
               </div>
               <button onClick={handleExport} className="btn-outline shrink-0 text-xs" title="Export conversation">
                 <DownloadIcon className="h-3.5 w-3.5" />
-                Export
+                <span className="hidden sm:inline">Export</span>
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+            <div className="flex-1 space-y-4 overflow-y-auto px-3 py-5 sm:px-5">
               {messages.length === 0 && (
                 <div className="flex flex-col items-center gap-4 py-10 text-center">
                   <p className="text-sm text-gray-400">No messages yet — say hello.</p>
@@ -366,7 +389,7 @@ export default function AIChatPage() {
               <div ref={bottomRef} />
             </div>
 
-            <div className="border-t border-gray-100 p-4 dark:border-gray-800">
+            <div className="border-t border-gray-100 p-2 sm:p-4 dark:border-gray-800">
               <form
                 onSubmit={handleSend}
                 className="flex items-end gap-2 rounded-3xl border border-gray-200 bg-white p-2 pl-4 dark:border-gray-700 dark:bg-gray-900"
@@ -375,7 +398,7 @@ export default function AIChatPage() {
                   ref={textareaRef}
                   rows={1}
                   className="max-h-40 flex-1 resize-none bg-transparent py-2 text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100"
-                  placeholder="Type a message... (Enter to send, Shift+Enter for a new line)"
+                  placeholder="Type a message..."
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={handleComposerKeyDown}
@@ -410,7 +433,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       {!isUser && <CompanionMascot className="h-7 w-8 shrink-0" />}
       <div
         className={cn(
-          "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+          "max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed sm:max-w-[75%]",
           isUser
             ? "rounded-br-sm bg-brand-600 text-white"
             : "rounded-bl-sm bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100",
