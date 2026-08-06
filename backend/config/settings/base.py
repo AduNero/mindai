@@ -45,6 +45,12 @@ if os.environ.get("RENDER_EXTERNAL_HOSTNAME"):
 SITE_NAME = env("SITE_NAME", default="MindCare AI")
 FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173")
 
+# Google Sign-In (apps.users.google_oauth) — the OAuth "Client ID" from
+# Google Cloud Console; there's no client secret to configure here since
+# the frontend uses Google Identity Services' ID-token flow, not the
+# authorization-code flow.
+GOOGLE_CLIENT_ID = env("GOOGLE_CLIENT_ID", default="")
+
 # --- Applications ---
 DJANGO_APPS = [
     "django.contrib.admin",

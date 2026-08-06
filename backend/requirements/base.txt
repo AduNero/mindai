@@ -6,6 +6,13 @@ django-environ==0.11.2
 # Auth
 djangorestframework-simplejwt==5.3.1
 
+# Google Sign-In — verifies the ID token client-side auth returns (local
+# signature check against Google's cached public keys, no per-login
+# network round-trip after the first fetch; Google's own guidance is to
+# use this library rather than hitting their tokeninfo debug endpoint
+# per-request in production).
+google-auth==2.32.0
+
 # AI chat companion — OpenAI-API-compatible client (see apps.chat.services.llm)
 openai>=1.50
 

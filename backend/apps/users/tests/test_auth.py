@@ -208,6 +208,119 @@ class TestLogin:
         assert response.data["error"]["details"] == {"code": "email_not_verified"}
 
 
+class TestGoogleLogin:
+    def _claims(self, **overrides):
+        claims = {
+            "email": "newgoogleuser@example.com",
+            "email_verified": True,
+            "given_name": "Ada",
+            "family_name": "Lovelace",
+            "sub": "1234567890",
+        }
+        claims.update(overrides)
+        return claims
+
+    def test_creates_a_new_verified_unusable_password_account(self, api_client):
+        from unittest.mock import patch
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims()):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data and "refresh" in response.data
+
+        created = User.objects.get(email="newgoogleuser@example.com")
+        assert created.is_email_verified is True
+        assert created.has_usable_password() is False
+        assert created.first_name == "Ada"
+
+    def test_logs_in_an_existing_user_by_email(self, api_client, user):
+        from unittest.mock import patch
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["user"]["email"] == user.email
+        # An existing password-based account isn't touched by a Google login.
+        user.refresh_from_db()
+        assert user.check_password("CorrectHorse42!")
+
+    def test_verifies_a_previously_unverified_existing_account(self, api_client, user):
+        from unittest.mock import patch
+
+        user.is_email_verified = False
+        user.save(update_fields=["is_email_verified"])
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
+            api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        user.refresh_from_db()
+        assert user.is_email_verified is True
+
+    def test_rejects_when_google_has_not_verified_the_email(self, api_client):
+        from unittest.mock import patch
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email_verified=False)):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert not User.objects.filter(email="newgoogleuser@example.com").exists()
+
+    def test_rejects_invalid_token(self, api_client):
+        from unittest.mock import patch
+
+        from apps.users.google_oauth import GoogleTokenError
+
+        with patch("apps.users.views.verify_google_id_token", side_effect=GoogleTokenError("Token expired")):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_requires_credential(self, api_client):
+        response = api_client.post("/api/v1/auth/google/", {})
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_rejects_deactivated_account(self, api_client, user):
+        from unittest.mock import patch
+
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_clears_an_existing_lockout(self, api_client, user):
+        from unittest.mock import patch
+
+        from django.utils import timezone
+
+        user.failed_login_attempts = 5
+        user.locked_until = timezone.now() + timezone.timedelta(minutes=15)
+        user.save(update_fields=["failed_login_attempts", "locked_until"])
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
+            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.failed_login_attempts == 0
+        assert user.locked_until is None
+
+    def test_creates_a_user_session(self, api_client):
+        from unittest.mock import patch
+
+        from apps.users.models import UserSession
+
+        with patch("apps.users.views.verify_google_id_token", return_value=self._claims()):
+            api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
+
+        created = User.objects.get(email="newgoogleuser@example.com")
+        assert UserSession.objects.filter(user=created).exists()
+
+
 class TestLogout:
     def test_logout_blacklists_refresh_token(self, api_client, user):
         login = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})

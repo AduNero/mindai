@@ -5,6 +5,7 @@ from apps.users import views
 urlpatterns = [
     path("register/", views.RegisterView.as_view(), name="auth-register"),
     path("login/", views.LoginView.as_view(), name="auth-login"),
+    path("google/", views.GoogleLoginView.as_view(), name="auth-google-login"),
     path("refresh/", views.CustomTokenRefreshView.as_view(), name="auth-refresh"),
     path("logout/", views.LogoutView.as_view(), name="auth-logout"),
     path("logout-all/", views.LogoutAllView.as_view(), name="auth-logout-all"),

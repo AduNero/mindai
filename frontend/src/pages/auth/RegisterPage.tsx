@@ -1,12 +1,13 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { GoogleSignInButton } from "@/components/common/GoogleSignInButton";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { extractErrorMessage } from "@/utils/errors";
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -37,6 +38,16 @@ export default function RegisterPage() {
       showToast(extractErrorMessage(err, "Registration failed."), "error");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credential: string) => {
+    try {
+      const user = await loginWithGoogle(credential);
+      showToast(`Welcome, ${user.first_name}!`, "success");
+      navigate(user.role === "admin" ? "/admin" : "/dashboard", { replace: true });
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Google sign-in failed."), "error");
     }
   };
 
@@ -80,6 +91,17 @@ export default function RegisterPage() {
           {submitting ? "Creating account..." : "Create account"}
         </button>
       </form>
+
+      {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+        <>
+          <div className="my-6 flex items-center gap-3 text-xs uppercase text-gray-400">
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+            or
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+          </div>
+          <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={(msg) => showToast(msg, "error")} />
+        </>
+      )}
 
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{" "}

@@ -79,6 +79,12 @@ services:
       # docs/architecture/free-tier-hosting.md.
       - key: CHAT_LLM_API_KEY
         sync: false
+      # Optional — Google Sign-In is skipped entirely if unset (the
+      # frontend button just doesn't render). Same Client ID goes into
+      # the frontend build as VITE_GOOGLE_CLIENT_ID (set in Vercel, not
+      # here — see docs/architecture/free-tier-hosting.md).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       - key: REDIS_URL
         sync: false
       - key: CORS_ALLOWED_ORIGINS

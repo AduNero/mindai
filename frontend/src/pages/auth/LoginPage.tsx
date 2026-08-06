@@ -1,12 +1,14 @@
 import { FormEvent, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { GoogleSignInButton } from "@/components/common/GoogleSignInButton";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import type { User } from "@/types";
 import { extractErrorCode, extractErrorMessage } from "@/utils/errors";
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -19,6 +21,8 @@ export default function LoginPage() {
 
   const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname || "/dashboard";
 
+  const goToNext = (user: User) => navigate(user.role === "admin" ? "/admin" : from, { replace: true });
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -26,7 +30,7 @@ export default function LoginPage() {
     try {
       const user = await login(email, password, rememberMe);
       showToast(`Welcome back, ${user.first_name}!`, "success");
-      navigate(user.role === "admin" ? "/admin" : from, { replace: true });
+      goToNext(user);
     } catch (err) {
       if (extractErrorCode(err) === "email_not_verified") {
         setNeedsVerification(true);
@@ -35,6 +39,16 @@ export default function LoginPage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSuccess = async (credential: string) => {
+    try {
+      const user = await loginWithGoogle(credential);
+      showToast(`Welcome, ${user.first_name}!`, "success");
+      goToNext(user);
+    } catch (err) {
+      showToast(extractErrorMessage(err, "Google sign-in failed."), "error");
     }
   };
 
@@ -89,6 +103,17 @@ export default function LoginPage() {
           {submitting ? "Logging in..." : "Log in"}
         </button>
       </form>
+
+      {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+        <>
+          <div className="my-6 flex items-center gap-3 text-xs uppercase text-gray-400">
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+            or
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+          </div>
+          <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={(msg) => showToast(msg, "error")} />
+        </>
+      )}
 
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
         Don't have an account?{" "}

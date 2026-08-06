@@ -103,7 +103,32 @@ depends on whether you have a domain to verify:
 Set `EMAIL_BACKEND` to whichever and its matching `*_API_KEY` in
 Render's Environment tab to switch.
 
-## 5. Close the loop
+## 5. Google Sign-In (optional)
+
+Entirely skippable — both `GOOGLE_CLIENT_ID` (backend) and
+`VITE_GOOGLE_CLIENT_ID` (frontend) default to unset, in which case the
+"Continue with Google" button just doesn't render and nothing else
+changes. Worth doing anyway: it sidesteps the email-delivery bottleneck
+entirely for anyone who uses it — Google has already verified the
+address, so there's no OTP code to send or wait for.
+
+1. [console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials) →
+   **Create Credentials** → **OAuth client ID** → Application type
+   **Web application**.
+2. Under **Authorized JavaScript origins**, add both your Vercel URL
+   (`https://your-app.vercel.app`) and, for local dev,
+   `http://localhost:5173`. No redirect URI or client secret needed —
+   the frontend uses Google Identity Services' ID-token flow, not the
+   authorization-code flow.
+3. Copy the **Client ID** (looks like
+   `123-abc.apps.googleusercontent.com`).
+4. Set it in **both** places, same value: `GOOGLE_CLIENT_ID` in Render
+   (used server-side to verify tokens), and `VITE_GOOGLE_CLIENT_ID` in
+   Vercel's project environment variables (baked into the static build
+   — Vercel needs a redeploy to pick up a changed env var, unlike
+   Render which does it automatically on save).
+
+## 6. Close the loop
 
 Back in Render, fill in the remaining env vars that needed the Vercel URL:
 

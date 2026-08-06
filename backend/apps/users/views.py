@@ -17,7 +17,9 @@ from apps.audit.models import AuditAction
 from apps.audit.utils import log_audit_event
 from apps.common.pagination import StandardResultsSetPagination
 from apps.common.permissions import IsAdmin
+from apps.common.utils import get_client_ip, get_user_agent
 
+from .google_oauth import GoogleTokenError, verify_google_id_token
 from .models import CounselorProfile, Profile, Role, User, UserSession
 from .serializers import (
     AdminPromoteCounselorSerializer,
@@ -34,6 +36,7 @@ from .serializers import (
     ProfileSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
+    UserSerializer,
     UserSessionSerializer,
 )
 from .tasks import send_password_reset_email, send_verification_email
@@ -97,6 +100,96 @@ class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"
+
+
+class GoogleLoginView(APIView):
+    """
+    Logs in with a Google Identity Services ID token, creating the
+    account on first sign-in. Deliberately skips this app's own email-OTP
+    verification step and password entirely — Google has already proven
+    ownership of the address (checked via `email_verified` on the
+    token), which is at least as strong a signal as our own OTP flow, and
+    there's no password to check or lock out in the first place. A
+    locked-out (repeated-password-failure) account can still sign in this
+    way, since that lock exists specifically to slow down password
+    guessing, a vector this path doesn't use at all; success here clears
+    it, same as a correct password would.
+    """
+
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "auth"
+
+    def post(self, request):
+        credential = request.data.get("credential")
+        if not credential:
+            return Response({"detail": "credential is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            claims = verify_google_id_token(credential)
+        except GoogleTokenError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not claims.get("email_verified"):
+            return Response(
+                {"detail": "Google did not confirm this email address is verified."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        email = claims["email"].lower()
+        user = User.objects.filter(email__iexact=email).first()
+        created = user is None
+        if created:
+            user = User.objects.create(
+                email=email,
+                first_name=claims.get("given_name") or "Google",
+                last_name=claims.get("family_name") or "User",
+                is_email_verified=True,
+            )
+            user.set_unusable_password()
+            user.save(update_fields=["password"])
+        elif not user.is_email_verified:
+            user.is_email_verified = True
+            user.save(update_fields=["is_email_verified"])
+
+        if not user.is_active:
+            log_audit_event(AuditAction.LOGIN_FAILED, user=user, request=request, reason="account_inactive")
+            return Response({"detail": "This account has been deactivated."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        user.last_login_ip = get_client_ip(request)
+        user.save(update_fields=["failed_login_attempts", "locked_until", "last_login_ip"])
+
+        refresh = MindCareTokenObtainPairSerializer.get_token(user)
+        UserSession.objects.create(
+            user=user,
+            refresh_token_jti=str(refresh["jti"]),
+            device_label=get_user_agent(request)[:255],
+            ip_address=get_client_ip(request),
+            user_agent=get_user_agent(request),
+            expires_at=datetime.fromtimestamp(refresh["exp"], tz=dt_timezone.utc),
+        )
+        log_audit_event(AuditAction.LOGIN_SUCCESS, user=user, request=request, provider="google")
+        if created:
+            from apps.notifications.models import NotificationChannel, NotificationType
+            from apps.notifications.services import notify
+
+            notify(
+                user,
+                NotificationType.SYSTEM,
+                "Welcome to MindCare AI",
+                "Your account was created via Google Sign-In.",
+                channel=NotificationChannel.IN_APP,
+            )
+
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data,
+            }
+        )
 
 
 class CustomTokenRefreshView(TokenRefreshView):

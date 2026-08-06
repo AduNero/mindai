@@ -6,6 +6,41 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Add Google Sign-In
+- `POST /api/v1/auth/google/` (`GoogleLoginView`): logs in with a Google
+  Identity Services ID token, creating the account on first sign-in.
+  Verifies the token's cryptographic signature locally against Google's
+  cached public keys via the official `google-auth` library (Google's
+  own guidance: their `tokeninfo` debug endpoint is explicitly "for
+  development" only, not a per-request production check) and checks
+  `aud` matches `GOOGLE_CLIENT_ID` and `email_verified` is true. New
+  accounts get `is_email_verified=True` and an unusable password (no
+  password to check or reset for a Google-only account); an existing
+  unverified account gets flipped to verified on a successful Google
+  login, since Google's proof is at least as strong as our own OTP
+  flow. Deliberately allowed to clear an existing password-lockout —
+  that lock exists to slow down password guessing, a vector this path
+  doesn't use at all.
+- Frontend: `GoogleSignInButton` loads Google's Identity Services script
+  directly (no new npm dependency) and renders nothing if
+  `VITE_GOOGLE_CLIENT_ID` isn't set, so it degrades cleanly wherever
+  Google Sign-In isn't configured. Wired into both `LoginPage` and
+  `RegisterPage` (Google sign-up and sign-in are the same endpoint,
+  since it's find-or-create).
+- This is also the actual "make login/signup faster" fix: it skips
+  password entry and, for new users, the OTP-email round-trip entirely
+  (the thing this session spent the most time fighting). Evaluated and
+  deliberately skipped a micro-optimization to remove a redundant user
+  lookup in the password-login serializer — real, but sub-millisecond,
+  and reimplementing Django's `authenticate()` internals to save it
+  risked subtly breaking its timing-attack mitigation for negligible
+  gain. Genuine remaining bottlenecks (Django's intentionally-slow
+  password hashing, Render free-tier cold starts) are security/infra
+  tradeoffs, not bugs to fix.
+- See `docs/architecture/free-tier-hosting.md` §5 for Render/Vercel
+  setup (entirely optional — unset by default, nothing else changes).
+
+
 ### Back to Brevo for Render email; ruled out Bird.com
 - Zoho SMTP confirmed to fail the same way Gmail did
   (`OSError: [Errno 101] Network is unreachable` — Render's free-tier
