@@ -10,7 +10,6 @@ const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/about", label: "About" },
   { to: "/features", label: "Features" },
-  { to: "/pricing", label: "Pricing" },
   { to: "/faq", label: "FAQ" },
   { to: "/contact", label: "Contact" },
 ];

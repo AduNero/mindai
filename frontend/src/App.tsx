@@ -17,7 +17,6 @@ const NotFoundPage = lazy(() => import("@/pages/NotFoundPage"));
 const LandingPage = lazy(() => import("@/pages/public/LandingPage"));
 const AboutPage = lazy(() => import("@/pages/public/AboutPage"));
 const FeaturesPage = lazy(() => import("@/pages/public/FeaturesPage"));
-const PricingPage = lazy(() => import("@/pages/public/PricingPage"));
 const FAQPage = lazy(() => import("@/pages/public/FAQPage"));
 const ContactPage = lazy(() => import("@/pages/public/ContactPage"));
 
@@ -60,7 +59,6 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/features" element={<FeaturesPage />} />
-                <Route path="/pricing" element={<PricingPage />} />
                 <Route path="/faq" element={<FAQPage />} />
                 <Route path="/contact" element={<ContactPage />} />
               </Route>

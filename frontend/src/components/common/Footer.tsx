@@ -21,7 +21,6 @@ export function Footer() {
             <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Product</p>
             <ul className="mt-3 space-y-2 text-sm text-gray-500 dark:text-gray-400">
               <li><Link to="/features" className="hover:text-brand-600">Features</Link></li>
-              <li><Link to="/pricing" className="hover:text-brand-600">Pricing</Link></li>
               <li><Link to="/faq" className="hover:text-brand-600">FAQ</Link></li>
             </ul>
           </div>

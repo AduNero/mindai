@@ -6,6 +6,11 @@ corresponds to a milestone in that build.
 
 ## [Unreleased]
 
+### Remove the Pricing page
+- Deleted `PricingPage.tsx`, its route, and its links from the public
+  navbar and footer.
+
+
 ### Add Google Sign-In
 - `POST /api/v1/auth/google/` (`GoogleLoginView`): logs in with a Google
   Identity Services ID token, creating the account on first sign-in.
