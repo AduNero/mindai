@@ -1,12 +1,4 @@
-export type NotificationType =
-  | "daily_reminder"
-  | "journal_reminder"
-  | "mood_reminder"
-  | "meditation_reminder"
-  | "assessment_reminder"
-  | "appointment_reminder"
-  | "system"
-  | "risk_alert";
+export type NotificationType = "daily_reminder" | "journal_reminder" | "mood_reminder" | "system" | "risk_alert";
 
 export interface Notification {
   id: string;
@@ -23,9 +15,6 @@ export interface NotificationPreference {
   daily_reminder: boolean;
   journal_reminder: boolean;
   mood_reminder: boolean;
-  meditation_reminder: boolean;
-  assessment_reminder: boolean;
-  appointment_reminder: boolean;
   email_enabled: boolean;
   in_app_enabled: boolean;
   preferred_reminder_time: string;

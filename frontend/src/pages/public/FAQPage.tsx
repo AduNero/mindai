@@ -3,27 +3,27 @@ import { useState } from "react";
 const FAQS = [
   {
     q: "Is MindCare AI a substitute for therapy or medical care?",
-    a: "No. MindCare AI is a self-monitoring and support tool. It does not diagnose conditions and is not a substitute for a licensed mental health professional. If you're in crisis, contact local emergency services or a crisis hotline immediately.",
+    a: "No. MindCare AI is a self-monitoring mood and journal log. It does not diagnose conditions and is not a substitute for a licensed mental health professional. If you're in crisis, contact local emergency services or a crisis hotline immediately.",
   },
   {
     q: "How does the AI analyze my journal entries?",
-    a: "Journal entries are processed with sentiment and emotion classification models (via Hugging Face Transformers) to estimate sentiment, stress, anxiety, and emotional tone. Results are stored privately and used to power your dashboard and recommendations.",
+    a: "Each journal entry is run through a single, bounded classifier — TF-IDF feature extraction plus multinomial logistic regression — trained and evaluated on a public benchmark dataset (TweetEval). It estimates text polarity (positive/negative/neutral) only. It is not a general-purpose AI, not an emotion detector, and not a diagnostic tool.",
   },
   {
-    q: "What happens if the AI detects concerning language?",
-    a: "MindCare AI never pretends to be a therapist or guarantees confidentiality in an emergency. If crisis-indicating language is detected, you'll be shown location-aware emergency resources and encouraged to contact local services or a trusted person. We do not notify third parties without your explicit consent.",
+    q: "Is the sentiment label the same as an emotional assessment?",
+    a: "No. It's always shown as a tentative, AI-suggested label with a one-line disclaimer, and you can accept, reject, or correct it. It's never presented as a diagnosis, emotion, or severity score.",
+  },
+  {
+    q: "What happens if the app detects concerning language?",
+    a: "A separate, deterministic (non-AI) phrase check — not the sentiment classifier — can surface a support-resource card. It never claims to monitor you in real time, never notifies anyone on your behalf, and never claims emergency services have been contacted. Only the risk tier is logged, never the text that triggered it.",
   },
   {
     q: "Who can see my journal entries?",
-    a: "Journal entries are private by default and visible only to you. You can optionally mark an entry public; public entries can be reported by other users for moderation.",
+    a: "Journal entries are private by default and always private — only you can see them. There is no public-sharing or moderation feature.",
   },
   {
-    q: "Can I export my AI chat history?",
-    a: "Yes — every AI Therapy chat session can be exported as a text transcript from the chat page.",
-  },
-  {
-    q: "Are the assessments (PHQ-9, GAD-7, etc.) clinically validated?",
-    a: "PHQ-9 and GAD-7 use their standard, published items and clinical severity cut-offs. The stress, burnout, and self-esteem instruments are original items inspired by well-known scales; none of these produce a diagnosis.",
+    q: "Can I delete my entries or my account?",
+    a: "Yes. Individual entries can be deleted at any time — this is a real, permanent deletion. You can also delete your entire account from Settings, which immediately and permanently removes your account and all associated data.",
   },
 ];
 

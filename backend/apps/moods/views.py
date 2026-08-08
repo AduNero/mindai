@@ -31,13 +31,7 @@ class MoodEntryViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        entry = serializer.save(user=self.request.user)
-
-        from apps.ai_engine.tasks import recompute_wellness_score
-        from apps.recommendations.tasks import generate_recommendations_for_user
-
-        recompute_wellness_score.delay(str(self.request.user.id), entry.entry_date.isoformat())
-        generate_recommendations_for_user.delay(str(self.request.user.id))
+        serializer.save(user=self.request.user)
 
     @action(detail=False, methods=["get"])
     def current(self, request):

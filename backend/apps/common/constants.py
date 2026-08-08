@@ -36,24 +36,16 @@ SENTIMENT_CHOICES = [
     (SENTIMENT_NEUTRAL, "Neutral"),
 ]
 
-EMOTION_JOY = "joy"
-EMOTION_FEAR = "fear"
-EMOTION_SADNESS = "sadness"
-EMOTION_ANGER = "anger"
-EMOTION_LOVE = "love"
-EMOTION_SURPRISE = "surprise"
-EMOTION_OPTIMISM = "optimism"
-EMOTION_DISAPPOINTMENT = "disappointment"
+SENTIMENT_ACTION_PENDING = "pending"
+SENTIMENT_ACTION_ACCEPTED = "accepted"
+SENTIMENT_ACTION_REJECTED = "rejected"
+SENTIMENT_ACTION_CORRECTED = "corrected"
 
-EMOTION_CHOICES = [
-    (EMOTION_JOY, "Joy"),
-    (EMOTION_FEAR, "Fear"),
-    (EMOTION_SADNESS, "Sadness"),
-    (EMOTION_ANGER, "Anger"),
-    (EMOTION_LOVE, "Love"),
-    (EMOTION_SURPRISE, "Surprise"),
-    (EMOTION_OPTIMISM, "Optimism"),
-    (EMOTION_DISAPPOINTMENT, "Disappointment"),
+SENTIMENT_ACTION_CHOICES = [
+    (SENTIMENT_ACTION_PENDING, "Pending"),
+    (SENTIMENT_ACTION_ACCEPTED, "Accepted"),
+    (SENTIMENT_ACTION_REJECTED, "Rejected"),
+    (SENTIMENT_ACTION_CORRECTED, "Corrected"),
 ]
 
 RISK_NONE = "none"
@@ -71,28 +63,9 @@ RISK_LEVEL_CHOICES = [
 ]
 
 DETECTION_SOURCE_JOURNAL = "journal"
-DETECTION_SOURCE_CHAT = "chat"
-DETECTION_SOURCE_ASSESSMENT = "assessment"
 
 DETECTION_SOURCE_CHOICES = [
     (DETECTION_SOURCE_JOURNAL, "Journal Entry"),
-    (DETECTION_SOURCE_CHAT, "Chat Message"),
-    (DETECTION_SOURCE_ASSESSMENT, "Assessment"),
-]
-
-RECOMMENDATION_SOURCE_CHOICES = [
-    ("mood", "Mood"),
-    ("journal", "Journal"),
-    ("assessment", "Assessment"),
-    ("chat", "Chat"),
-    ("system", "System / Scheduled"),
-]
-
-GENDER_CHOICES = [
-    ("male", "Male"),
-    ("female", "Female"),
-    ("non_binary", "Non-binary"),
-    ("prefer_not_to_say", "Prefer not to say"),
 ]
 
 THEME_CHOICES = [

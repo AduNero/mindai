@@ -13,47 +13,58 @@ from apps.audit.utils import log_audit_event
 from apps.common.utils import get_client_ip, get_user_agent
 from apps.common.validators import validate_image_file
 
-from .models import CounselorProfile, Profile, Role, User, UserSession
+from .models import Profile, Role, User, UserSession
 from .tasks import send_account_locked_email
 
 logger = logging.getLogger("apps")
 
 
 class UserSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(read_only=True)
-
     class Meta:
         model = User
-        fields = [
-            "id", "email", "first_name", "last_name", "full_name",
-            "role", "is_email_verified", "created_at",
-        ]
+        fields = ["id", "email", "pseudonym", "role", "is_email_verified", "created_at"]
         read_only_fields = fields
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     password_confirm = serializers.CharField(write_only=True, style={"input_type": "password"})
+    age_confirmed = serializers.BooleanField(write_only=True)
+    consent_accepted = serializers.BooleanField(write_only=True)
 
     class Meta:
         model = User
-        fields = ["email", "first_name", "last_name", "password", "password_confirm"]
+        fields = ["email", "pseudonym", "password", "password_confirm", "age_confirmed", "consent_accepted"]
 
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("An account with this email already exists.")
         return value.lower()
 
+    def validate_pseudonym(self, value):
+        if User.objects.filter(pseudonym__iexact=value).exists():
+            raise serializers.ValidationError("This pseudonym is already taken.")
+        return value
+
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
             raise serializers.ValidationError({"password_confirm": "Passwords do not match."})
         validate_password(attrs["password"])
+        if not attrs.get("age_confirmed"):
+            raise serializers.ValidationError({"age_confirmed": "You must confirm you are 18 or older to continue."})
+        if not attrs.get("consent_accepted"):
+            raise serializers.ValidationError({"consent_accepted": "You must accept the privacy notice to continue."})
         return attrs
 
     def create(self, validated_data):
         validated_data.pop("password_confirm")
+        validated_data.pop("age_confirmed")
+        validated_data.pop("consent_accepted")
         password = validated_data.pop("password")
-        user = User.objects.create_user(password=password, **validated_data)
+        now = timezone.now()
+        user = User.objects.create_user(
+            password=password, age_confirmed_at=now, consent_accepted_at=now, **validated_data
+        )
         return user
 
 
@@ -69,9 +80,8 @@ class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token["email"] = user.email
         token["role"] = user.role
-        token["full_name"] = user.full_name
+        token["pseudonym"] = user.pseudonym
         return token
 
     def _register_failed_attempt(self, user):
@@ -81,7 +91,7 @@ class MindCareTokenObtainPairSerializer(TokenObtainPairSerializer):
                 minutes=settings.ACCOUNT_LOCKOUT_DURATION_MINUTES
             )
             try:
-                send_account_locked_email.delay(user.email, user.first_name, user.locked_until.isoformat())
+                send_account_locked_email.delay(user.email, user.pseudonym, user.locked_until.isoformat())
             except Exception:  # noqa: BLE001 - an email backend failure shouldn't break the login attempt itself
                 logger.exception("Failed to send account-locked email to %s", user.email)
         user.save(update_fields=["failed_login_attempts", "locked_until"])
@@ -215,11 +225,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = [
-            "id", "user", "profile_picture", "bio", "date_of_birth", "gender",
-            "phone_number", "country_code", "timezone", "emergency_contact_name",
-            "emergency_contact_phone", "theme_preference", "created_at", "updated_at",
-        ]
+        fields = ["id", "user", "profile_picture", "bio", "timezone", "theme_preference", "created_at", "updated_at"]
         read_only_fields = ["id", "user", "profile_picture", "created_at", "updated_at"]
 
 
@@ -245,44 +251,11 @@ class UserSessionSerializer(serializers.ModelSerializer):
         return obj.is_active()
 
 
-class CounselorProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
-
-    class Meta:
-        model = CounselorProfile
-        fields = [
-            "id", "user", "specialization", "license_number", "years_of_experience",
-            "bio", "is_accepting_appointments", "approved_by_admin", "created_at",
-        ]
-        read_only_fields = ["id", "user", "approved_by_admin", "created_at"]
-
-
-class AdminPromoteCounselorSerializer(serializers.Serializer):
-    """Admin action: promote an existing user to role=counselor and create their CounselorProfile."""
-
-    user_id = serializers.UUIDField()
-    specialization = serializers.CharField(required=False, allow_blank=True, default="")
-    license_number = serializers.CharField(required=False, allow_blank=True, default="")
-    years_of_experience = serializers.IntegerField(required=False, default=0)
-    bio = serializers.CharField(required=False, allow_blank=True, default="")
-
-    def validate_user_id(self, value):
-        try:
-            user = User.objects.get(id=value)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("User not found.")
-        if hasattr(user, "counselor_profile"):
-            raise serializers.ValidationError("This user is already a counselor.")
-        return value
-
-
 class AdminUserSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(read_only=True)
-
     class Meta:
         model = User
         fields = [
-            "id", "email", "first_name", "last_name", "full_name", "role",
+            "id", "email", "pseudonym", "role",
             "is_active", "is_email_verified", "is_locked", "created_at", "last_login",
         ]
         read_only_fields = ["id", "email", "created_at", "last_login", "is_locked"]
@@ -292,13 +265,6 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["role", "is_active"]
-
-    def validate_role(self, value):
-        if value == Role.COUNSELOR:
-            raise serializers.ValidationError(
-                "Use the counselor promotion endpoint to assign the counselor role."
-            )
-        return value
 
     def validate(self, attrs):
         request = self.context.get("request")

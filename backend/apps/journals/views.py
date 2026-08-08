@@ -1,18 +1,21 @@
-from rest_framework import generics, permissions, viewsets
+from django.utils import timezone
+from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.ai_engine.serializers import SentimentActionSerializer, SentimentResultSerializer
+from apps.ai_engine.services.analysis import analyze_journal_entry
 from apps.common.permissions import IsOwner
 
 from .models import JournalEntry, Tag
-from .serializers import JournalEntrySerializer, JournalReportCreateSerializer, TagSerializer
+from .serializers import JournalEntrySerializer, TagSerializer
 
 
 class JournalEntryViewSet(viewsets.ModelViewSet):
     serializer_class = JournalEntrySerializer
     permission_classes = [permissions.IsAuthenticated, IsOwner]
     search_fields = ["title", "body"]
-    filterset_fields = ["mood", "visibility"]
+    filterset_fields = ["mood"]
     ordering_fields = ["entry_date", "created_at"]
 
     def get_queryset(self):
@@ -30,17 +33,11 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         entry = serializer.save(user=self.request.user)
-        self._dispatch_analysis(entry)
+        analyze_journal_entry(entry)
 
     def perform_update(self, serializer):
         entry = serializer.save()
-        self._dispatch_analysis(entry)
-
-    @staticmethod
-    def _dispatch_analysis(entry):
-        from apps.ai_engine.tasks import analyze_content
-
-        analyze_content.delay("journals", "journalentry", str(entry.id))
+        analyze_journal_entry(entry)
 
     @action(detail=False, methods=["get"])
     def stats(self, request):
@@ -53,25 +50,37 @@ class JournalEntryViewSet(viewsets.ModelViewSet):
         return Response(
             {
                 "total_entries": total,
-                "public_entries": qs.filter(visibility="public").count(),
-                "private_entries": qs.filter(visibility="private").count(),
                 "flagged_entries": qs.filter(is_flagged=True).count(),
                 "mood_breakdown": mood_counts,
             }
         )
+
+    @action(detail=True, methods=["patch"], url_path="sentiment")
+    def sentiment(self, request, pk=None):
+        """
+        Accept / reject / correct the classifier's most recent tentative
+        label on this entry — the outcome itself is stored, not discarded,
+        since it's the evaluation data referenced in Chapter Four.
+        """
+
+        entry = self.get_object()
+        latest = entry.sentiment_results.order_by("-created_at").first()
+        if not latest:
+            return Response({"detail": "No sentiment analysis for this entry."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SentimentActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        latest.user_action = data["user_action"]
+        latest.corrected_label = data.get("corrected_label", "")
+        latest.actioned_at = timezone.now()
+        latest.save(update_fields=["user_action", "corrected_label", "actioned_at"])
+
+        return Response(SentimentResultSerializer(latest).data)
 
 
 class TagListView(generics.ListAPIView):
     serializer_class = TagSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Tag.objects.all().order_by("name")
-
-
-class JournalReportCreateView(generics.CreateAPIView):
-    serializer_class = JournalReportCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        entry = serializer.save(reported_by=self.request.user)
-        entry.journal_entry.is_flagged = True
-        entry.journal_entry.save(update_fields=["is_flagged"])

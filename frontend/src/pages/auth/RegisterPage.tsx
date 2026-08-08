@@ -1,23 +1,23 @@
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { GoogleSignInButton } from "@/components/common/GoogleSignInButton";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { extractErrorMessage } from "@/utils/errors";
 
 export default function RegisterPage() {
-  const { register, loginWithGoogle } = useAuth();
+  const { register } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
-    first_name: "",
-    last_name: "",
+    pseudonym: "",
     email: "",
     password: "",
     password_confirm: "",
   });
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [consentAccepted, setConsentAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const update = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -29,9 +29,13 @@ export default function RegisterPage() {
       showToast("Passwords do not match.", "error");
       return;
     }
+    if (!ageConfirmed || !consentAccepted) {
+      showToast("Please confirm your age and accept the privacy notice to continue.", "error");
+      return;
+    }
     setSubmitting(true);
     try {
-      await register(form);
+      await register({ ...form, age_confirmed: ageConfirmed, consent_accepted: consentAccepted });
       showToast("Account created! Check your email for a verification code.", "success");
       navigate(`/verify-email?email=${encodeURIComponent(form.email)}`);
     } catch (err) {
@@ -41,35 +45,30 @@ export default function RegisterPage() {
     }
   };
 
-  const handleGoogleSuccess = async (credential: string) => {
-    try {
-      const user = await loginWithGoogle(credential);
-      showToast(`Welcome, ${user.first_name}!`, "success");
-      navigate(user.role === "admin" ? "/admin" : "/dashboard", { replace: true });
-    } catch (err) {
-      showToast(extractErrorMessage(err, "Google sign-in failed."), "error");
-    }
-  };
-
   return (
     <div className="card animate-slide-up">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create your account</h1>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Start tracking your wellbeing today.</p>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Create your pseudonymous account</h1>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        No real name required — just a pseudonym and a recovery email.
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="first_name" className="label">First name</label>
-            <input id="first_name" required className="input" value={form.first_name} onChange={update("first_name")} />
-          </div>
-          <div>
-            <label htmlFor="last_name" className="label">Last name</label>
-            <input id="last_name" required className="input" value={form.last_name} onChange={update("last_name")} />
-          </div>
+        <div>
+          <label htmlFor="pseudonym" className="label">Pseudonym</label>
+          <input
+            id="pseudonym"
+            required
+            maxLength={50}
+            className="input"
+            placeholder="How you'll appear in the app"
+            value={form.pseudonym}
+            onChange={update("pseudonym")}
+          />
         </div>
         <div>
-          <label htmlFor="email" className="label">Email</label>
+          <label htmlFor="email" className="label">Recovery email</label>
           <input id="email" type="email" required className="input" value={form.email} onChange={update("email")} />
+          <p className="mt-1 text-xs text-gray-400">Used only for login and account recovery — never shown to other users.</p>
         </div>
         <div>
           <label htmlFor="password" className="label">Password</label>
@@ -87,21 +86,38 @@ export default function RegisterPage() {
             onChange={update("password_confirm")}
           />
         </div>
+
+        <div className="space-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
+          <label className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              required
+              checked={ageConfirmed}
+              onChange={(e) => setAgeConfirmed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            I confirm that I am 18 years of age or older.
+          </label>
+          <label className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <input
+              type="checkbox"
+              required
+              checked={consentAccepted}
+              onChange={(e) => setConsentAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            I have read and agree to the{" "}
+            <Link to="/privacy" className="font-medium text-brand-600 hover:underline" target="_blank">
+              privacy notice
+            </Link>
+            .
+          </label>
+        </div>
+
         <button type="submit" disabled={submitting} className="btn-primary w-full">
           {submitting ? "Creating account..." : "Create account"}
         </button>
       </form>
-
-      {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
-        <>
-          <div className="my-6 flex items-center gap-3 text-xs uppercase text-gray-400">
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-            or
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
-          </div>
-          <GoogleSignInButton onSuccess={handleGoogleSuccess} onError={(msg) => showToast(msg, "error")} />
-        </>
-      )}
 
       <p className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
         Already have an account?{" "}

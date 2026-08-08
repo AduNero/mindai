@@ -7,9 +7,8 @@ pytestmark = pytest.mark.django_db
 
 
 class TestUserModel:
-    def test_full_name_combines_first_and_last(self, user):
-        user.first_name, user.last_name = "Ada", "Lovelace"
-        assert user.full_name == "Ada Lovelace"
+    def test_str_uses_pseudonym(self, user):
+        assert user.pseudonym in str(user)
 
     def test_is_locked_false_when_locked_until_is_none(self, user):
         assert user.is_locked is False
@@ -29,7 +28,7 @@ class TestUserModel:
         from apps.users.models import Role, User
 
         admin = User.objects.create_superuser(
-            email="root@example.com", password="CorrectHorse42!", first_name="Root", last_name="Admin"
+            email="root@example.com", password="CorrectHorse42!", pseudonym="RootAdmin"
         )
         assert admin.is_staff is True
         assert admin.is_superuser is True

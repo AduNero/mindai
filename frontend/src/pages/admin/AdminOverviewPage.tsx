@@ -29,11 +29,8 @@ export default function AdminOverviewPage() {
         <StatCard label="Total users" value={stats.total_users} accent="brand" />
         <StatCard label="Active users (30d)" value={stats.active_users_30d} accent="emerald" />
         <StatCard label="High-risk users" value={stats.high_risk_users} accent="red" helpText="Unacknowledged high/critical risk" />
-        <StatCard label="Total assessments" value={stats.total_assessments} accent="sky" />
-        <StatCard label="Appointments" value={stats.total_appointments} helpText={`${stats.pending_appointments} pending`} accent="amber" />
-        <StatCard label="AI chat sessions" value={stats.ai_chat_sessions} helpText={`${stats.ai_chat_messages} messages`} accent="brand" />
         <StatCard label="Mood entries (30d)" value={stats.mood_entries_30d} accent="emerald" />
-        <StatCard label="Journal entries (30d)" value={stats.journal_entries_30d} helpText={`${stats.pending_journal_reports} pending reports`} accent="sky" />
+        <StatCard label="Journal entries (30d)" value={stats.journal_entries_30d} accent="sky" />
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { Mood } from "./common";
+import type { SentimentResult } from "./ai";
 
 export interface MoodEntry {
   id: string;
@@ -24,8 +25,6 @@ export interface Tag {
   slug: string;
 }
 
-export type JournalVisibility = "private" | "public";
-
 export interface JournalEntry {
   id: string;
   title: string;
@@ -33,42 +32,14 @@ export interface JournalEntry {
   mood: Mood | "";
   tags: string[];
   entry_date: string;
-  visibility: JournalVisibility;
   is_flagged: boolean;
+  sentiment: SentimentResult | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface JournalStats {
   total_entries: number;
-  public_entries: number;
-  private_entries: number;
   flagged_entries: number;
   mood_breakdown: Record<string, number>;
-}
-
-export interface SleepEntry {
-  id: string;
-  entry_date: string;
-  hours_slept: string;
-  quality: number;
-  notes: string;
-  created_at: string;
-}
-
-export interface MeditationSession {
-  id: string;
-  resource: string | null;
-  duration_minutes: number;
-  completed: boolean;
-  started_at: string;
-  completed_at: string | null;
-  created_at: string;
-}
-
-export interface MeditationProgress {
-  total_sessions: number;
-  total_minutes: number;
-  sessions_this_week: number;
-  minutes_this_week: number;
 }

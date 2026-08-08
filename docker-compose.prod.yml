@@ -68,9 +68,10 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/backend/Dockerfile
-      target: worker
+      target: base
       args:
         REQUIREMENTS_FILE: requirements/production.txt
+    command: celery -A config worker -l info
     restart: always
     env_file: .env
     environment:

@@ -76,12 +76,7 @@ LOCAL_APPS = [
     "apps.users",
     "apps.moods",
     "apps.journals",
-    "apps.wellness",
-    "apps.assessments",
     "apps.ai_engine",
-    "apps.recommendations",
-    "apps.chat",
-    "apps.appointments",
     "apps.notifications",
     "apps.resources",
     "apps.admin_panel",
@@ -324,29 +319,22 @@ CACHES = {
     }
 }
 
-# --- Hugging Face / AI engine (see apps.ai_engine, Phase 5) ---
-# AI_ANALYSIS_ENABLED lets the backend run (migrations, API, tests) without
-# torch/transformers installed — see requirements/ai.txt, only needed on
-# workers that actually run inference. Analysis tasks no-op gracefully when
-# this is False instead of failing on a missing import.
+# --- AI engine: TF-IDF + logistic regression sentiment classifier ---
+# AI_ANALYSIS_ENABLED lets the backend run (migrations, API, tests) even
+# before a trained artifact exists at SENTIMENT_MODEL_ARTIFACT_PATH —
+# classification no-ops gracefully when this is False instead of failing
+# on a missing file.
 AI_ANALYSIS_ENABLED = env.bool("AI_ANALYSIS_ENABLED", default=True)
-HUGGINGFACE_API_TOKEN = env("HUGGINGFACE_API_TOKEN", default="")
-HF_SENTIMENT_MODEL = env("HF_SENTIMENT_MODEL", default="distilbert-base-uncased-finetuned-sst-2-english")
-# GoEmotions' 28 fine-grained labels include all 8 emotions this platform
-# tracks (joy, fear, sadness, anger, love, surprise, optimism, disappointment),
-# so results are filtered/renormalized down to that set — see
-# apps.ai_engine.services.emotion.
-HF_EMOTION_MODEL = env("HF_EMOTION_MODEL", default="SamLowe/roberta-base-go_emotions")
-HF_DEVICE = env("HF_DEVICE", default="cpu")
-# Below this confidence, sentiment classification falls back to "neutral"
-# rather than trusting a low-confidence positive/negative call.
-HF_SENTIMENT_NEUTRAL_THRESHOLD = env.float("HF_SENTIMENT_NEUTRAL_THRESHOLD", default=0.6)
-
-# --- AI chat companion (see apps.chat.services.llm) ---
-# Any OpenAI-API-compatible provider works — default is NVIDIA NIM.
-CHAT_LLM_API_KEY = env("CHAT_LLM_API_KEY", default="")
-CHAT_LLM_BASE_URL = env("CHAT_LLM_BASE_URL", default="https://integrate.api.nvidia.com/v1")
-CHAT_LLM_MODEL = env("CHAT_LLM_MODEL", default="nvidia/llama-3.3-nemotron-super-49b-v1")
+SENTIMENT_MODEL_ARTIFACT_PATH = Path(
+    env(
+        "SENTIMENT_MODEL_ARTIFACT_PATH",
+        default=str(BASE_DIR / "apps" / "ai_engine" / "ml" / "artifacts" / "sentiment_tfidf_logreg.joblib"),
+    )
+)
+# Commit pinned (not `main`) so `train_sentiment_classifier` always fetches
+# the exact same TweetEval snapshot — reproducibility for the dissertation's
+# reported accuracy/F1 numbers, without vendoring the dataset into the repo.
+TWEETEVAL_COMMIT_SHA = env("TWEETEVAL_COMMIT_SHA", default="4fbd22cd78421f05b1ecdb4fc5725bc7a7bd8f66")
 
 # --- Crisis / emergency resources ---
 DEFAULT_CRISIS_COUNTRY = env("DEFAULT_CRISIS_COUNTRY", default="US")

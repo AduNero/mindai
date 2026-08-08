@@ -8,11 +8,11 @@ logger = logging.getLogger("apps")
 
 
 @shared_task
-def send_verification_email(user_email, first_name, otp):
+def send_verification_email(user_email, pseudonym, otp):
     send_mail(
         subject=f"Verify your {settings.SITE_NAME} account",
         message=(
-            f"Hi {first_name},\n\n"
+            f"Hi {pseudonym},\n\n"
             f"Welcome to {settings.SITE_NAME}. Your verification code is:\n\n"
             f"    {otp}\n\n"
             f"Enter this code in the app to verify your email address. It expires "
@@ -26,11 +26,11 @@ def send_verification_email(user_email, first_name, otp):
 
 
 @shared_task
-def send_password_reset_email(user_email, first_name, otp):
+def send_password_reset_email(user_email, pseudonym, otp):
     send_mail(
         subject=f"Reset your {settings.SITE_NAME} password",
         message=(
-            f"Hi {first_name},\n\n"
+            f"Hi {pseudonym},\n\n"
             f"We received a request to reset your password. Your reset code is:\n\n"
             f"    {otp}\n\n"
             f"Enter this code in the app to choose a new password. It expires "
@@ -45,11 +45,11 @@ def send_password_reset_email(user_email, first_name, otp):
 
 
 @shared_task
-def send_account_locked_email(user_email, first_name, locked_until_iso):
+def send_account_locked_email(user_email, pseudonym, locked_until_iso):
     send_mail(
         subject=f"{settings.SITE_NAME} — account temporarily locked",
         message=(
-            f"Hi {first_name},\n\n"
+            f"Hi {pseudonym},\n\n"
             f"Your account was temporarily locked after several failed login "
             f"attempts. It will unlock automatically at {locked_until_iso}. "
             f"If this wasn't you, consider resetting your password."

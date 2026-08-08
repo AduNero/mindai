@@ -19,7 +19,7 @@ export function UserMenu() {
 
   if (!user) return null;
 
-  const initials = `${user.first_name[0] ?? ""}${user.last_name[0] ?? ""}`.toUpperCase();
+  const initials = user.pseudonym.slice(0, 2).toUpperCase();
 
   const handleLogout = async () => {
     await logout();
@@ -37,7 +37,7 @@ export function UserMenu() {
           {initials || "U"}
         </span>
         <span className="hidden text-left sm:block">
-          <span className="block font-medium text-gray-900 dark:text-gray-100">{user.full_name}</span>
+          <span className="block font-medium text-gray-900 dark:text-gray-100">{user.pseudonym}</span>
         </span>
       </button>
 

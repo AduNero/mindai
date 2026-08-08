@@ -7,23 +7,29 @@ from apps.users.models import EmailVerificationToken, PasswordResetToken, User
 pytestmark = pytest.mark.django_db
 
 
+def _register_payload(**overrides):
+    payload = {
+        "email": "new.user@example.com",
+        "pseudonym": "newuser",
+        "password": "CorrectHorse42!",
+        "password_confirm": "CorrectHorse42!",
+        "age_confirmed": True,
+        "consent_accepted": True,
+    }
+    payload.update(overrides)
+    return payload
+
+
 class TestRegistration:
     def test_register_creates_inactive_unverified_user_and_sends_email(self, api_client, mailoutbox):
-        response = api_client.post(
-            "/api/v1/auth/register/",
-            {
-                "email": "new.user@example.com",
-                "first_name": "New",
-                "last_name": "User",
-                "password": "CorrectHorse42!",
-                "password_confirm": "CorrectHorse42!",
-            },
-        )
+        response = api_client.post("/api/v1/auth/register/", _register_payload())
 
         assert response.status_code == status.HTTP_201_CREATED
         user = User.objects.get(email="new.user@example.com")
         assert user.is_email_verified is False
         assert user.check_password("CorrectHorse42!")
+        assert user.age_confirmed_at is not None
+        assert user.consent_accepted_at is not None
         assert EmailVerificationToken.objects.filter(user=user).exists()
         assert len(mailoutbox) == 1
         assert "verify" in mailoutbox[0].subject.lower()
@@ -40,14 +46,7 @@ class TestRegistration:
 
         with patch("apps.users.tasks.send_mail", side_effect=OSError("Network is unreachable")):
             response = api_client.post(
-                "/api/v1/auth/register/",
-                {
-                    "email": "resilient@example.com",
-                    "first_name": "Res",
-                    "last_name": "Ilient",
-                    "password": "CorrectHorse42!",
-                    "password_confirm": "CorrectHorse42!",
-                },
+                "/api/v1/auth/register/", _register_payload(email="resilient@example.com", pseudonym="resilient")
             )
 
         assert response.status_code == status.HTTP_201_CREATED
@@ -58,55 +57,47 @@ class TestRegistration:
         from apps.notifications.models import Notification, NotificationType
 
         api_client.post(
-            "/api/v1/auth/register/",
-            {
-                "email": "notify.me@example.com",
-                "first_name": "Notify",
-                "last_name": "Me",
-                "password": "CorrectHorse42!",
-                "password_confirm": "CorrectHorse42!",
-            },
+            "/api/v1/auth/register/", _register_payload(email="notify.me@example.com", pseudonym="notifyme")
         )
 
         user = User.objects.get(email="notify.me@example.com")
         assert Notification.objects.filter(user=user, notification_type=NotificationType.SYSTEM).exists()
 
     def test_register_rejects_duplicate_email(self, api_client, user):
+        response = api_client.post("/api/v1/auth/register/", _register_payload(email=user.email))
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_register_rejects_duplicate_pseudonym(self, api_client, user):
         response = api_client.post(
-            "/api/v1/auth/register/",
-            {
-                "email": user.email,
-                "first_name": "Dup",
-                "last_name": "User",
-                "password": "CorrectHorse42!",
-                "password_confirm": "CorrectHorse42!",
-            },
+            "/api/v1/auth/register/", _register_payload(email="unique@example.com", pseudonym=user.pseudonym)
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_register_rejects_mismatched_passwords(self, api_client):
         response = api_client.post(
             "/api/v1/auth/register/",
-            {
-                "email": "mismatch@example.com",
-                "first_name": "A",
-                "last_name": "B",
-                "password": "CorrectHorse42!",
-                "password_confirm": "SomethingElse99!",
-            },
+            _register_payload(email="mismatch@example.com", pseudonym="mismatch", password_confirm="SomethingElse99!"),
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
     def test_register_rejects_weak_password(self, api_client):
         response = api_client.post(
             "/api/v1/auth/register/",
-            {
-                "email": "weak@example.com",
-                "first_name": "A",
-                "last_name": "B",
-                "password": "password",
-                "password_confirm": "password",
-            },
+            _register_payload(email="weak@example.com", pseudonym="weak", password="password", password_confirm="password"),
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_register_rejects_missing_age_confirmation(self, api_client):
+        response = api_client.post(
+            "/api/v1/auth/register/",
+            _register_payload(email="underage@example.com", pseudonym="underage", age_confirmed=False),
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_register_rejects_missing_consent(self, api_client):
+        response = api_client.post(
+            "/api/v1/auth/register/",
+            _register_payload(email="noconsent@example.com", pseudonym="noconsent", consent_accepted=False),
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
@@ -206,119 +197,6 @@ class TestLogin:
         user.save()
         response = api_client.post("/api/v1/auth/login/", {"email": user.email, "password": "CorrectHorse42!"})
         assert response.data["error"]["details"] == {"code": "email_not_verified"}
-
-
-class TestGoogleLogin:
-    def _claims(self, **overrides):
-        claims = {
-            "email": "newgoogleuser@example.com",
-            "email_verified": True,
-            "given_name": "Ada",
-            "family_name": "Lovelace",
-            "sub": "1234567890",
-        }
-        claims.update(overrides)
-        return claims
-
-    def test_creates_a_new_verified_unusable_password_account(self, api_client):
-        from unittest.mock import patch
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims()):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_200_OK
-        assert "access" in response.data and "refresh" in response.data
-
-        created = User.objects.get(email="newgoogleuser@example.com")
-        assert created.is_email_verified is True
-        assert created.has_usable_password() is False
-        assert created.first_name == "Ada"
-
-    def test_logs_in_an_existing_user_by_email(self, api_client, user):
-        from unittest.mock import patch
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.data["user"]["email"] == user.email
-        # An existing password-based account isn't touched by a Google login.
-        user.refresh_from_db()
-        assert user.check_password("CorrectHorse42!")
-
-    def test_verifies_a_previously_unverified_existing_account(self, api_client, user):
-        from unittest.mock import patch
-
-        user.is_email_verified = False
-        user.save(update_fields=["is_email_verified"])
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
-            api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        user.refresh_from_db()
-        assert user.is_email_verified is True
-
-    def test_rejects_when_google_has_not_verified_the_email(self, api_client):
-        from unittest.mock import patch
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email_verified=False)):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert not User.objects.filter(email="newgoogleuser@example.com").exists()
-
-    def test_rejects_invalid_token(self, api_client):
-        from unittest.mock import patch
-
-        from apps.users.google_oauth import GoogleTokenError
-
-        with patch("apps.users.views.verify_google_id_token", side_effect=GoogleTokenError("Token expired")):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_requires_credential(self, api_client):
-        response = api_client.post("/api/v1/auth/google/", {})
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_rejects_deactivated_account(self, api_client, user):
-        from unittest.mock import patch
-
-        user.is_active = False
-        user.save(update_fields=["is_active"])
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-
-    def test_clears_an_existing_lockout(self, api_client, user):
-        from unittest.mock import patch
-
-        from django.utils import timezone
-
-        user.failed_login_attempts = 5
-        user.locked_until = timezone.now() + timezone.timedelta(minutes=15)
-        user.save(update_fields=["failed_login_attempts", "locked_until"])
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims(email=user.email)):
-            response = api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        assert response.status_code == status.HTTP_200_OK
-        user.refresh_from_db()
-        assert user.failed_login_attempts == 0
-        assert user.locked_until is None
-
-    def test_creates_a_user_session(self, api_client):
-        from unittest.mock import patch
-
-        from apps.users.models import UserSession
-
-        with patch("apps.users.views.verify_google_id_token", return_value=self._claims()):
-            api_client.post("/api/v1/auth/google/", {"credential": "fake-token"})
-
-        created = User.objects.get(email="newgoogleuser@example.com")
-        assert UserSession.objects.filter(user=created).exists()
 
 
 class TestLogout:

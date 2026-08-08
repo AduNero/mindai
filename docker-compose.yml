@@ -65,7 +65,8 @@ services:
     build:
       context: ./backend
       dockerfile: ../docker/backend/Dockerfile
-      target: worker
+      target: base
+    command: celery -A config worker -l info
     restart: unless-stopped
     env_file: .env
     environment:

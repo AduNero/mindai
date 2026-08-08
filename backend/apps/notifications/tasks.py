@@ -17,10 +17,6 @@ REMINDER_SPECS = [
      "You haven't logged a mood entry today — it only takes a few seconds."),
     ("journal_reminder", "journal_reminder", "Time to journal",
      "Writing a few lines about your day can help you process how you're feeling."),
-    ("meditation_reminder", "meditation_reminder", "Take a mindful break",
-     "A short meditation or breathing exercise could help you reset."),
-    ("assessment_reminder", "assessment_reminder", "Check in with an assessment",
-     "It's been a while since your last mental health assessment."),
 ]
 
 

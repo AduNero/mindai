@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import JournalEntry, JournalReport, Tag, Visibility
+from apps.ai_engine.serializers import SentimentResultSerializer
+
+from .models import JournalEntry, Tag
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -16,14 +18,19 @@ class TagListField(serializers.ListField):
 
 class JournalEntrySerializer(serializers.ModelSerializer):
     tags = TagListField(source="tag_names", required=False, default=list)
+    sentiment = serializers.SerializerMethodField()
 
     class Meta:
         model = JournalEntry
         fields = [
             "id", "title", "body", "mood", "tags", "entry_date",
-            "visibility", "is_flagged", "created_at", "updated_at",
+            "is_flagged", "sentiment", "created_at", "updated_at",
         ]
-        read_only_fields = ["id", "is_flagged", "created_at", "updated_at"]
+        read_only_fields = ["id", "is_flagged", "sentiment", "created_at", "updated_at"]
+
+    def get_sentiment(self, instance):
+        latest = instance.sentiment_results.order_by("-created_at").first()
+        return SentimentResultSerializer(latest).data if latest else None
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -46,18 +53,3 @@ class JournalEntrySerializer(serializers.ModelSerializer):
         if tag_names is not None:
             self._sync_tags(instance, tag_names)
         return instance
-
-
-class JournalReportCreateSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = JournalReport
-        fields = ["id", "journal_entry", "reason", "details"]
-        read_only_fields = ["id"]
-
-    def validate_journal_entry(self, value):
-        request = self.context["request"]
-        if value.user_id == request.user.id:
-            raise serializers.ValidationError("You cannot report your own journal entry.")
-        if value.visibility != Visibility.PUBLIC:
-            raise serializers.ValidationError("Only public journal entries can be reported.")
-        return value

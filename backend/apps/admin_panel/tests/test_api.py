@@ -13,55 +13,11 @@ class TestDashboardStats:
         response = admin_client.get("/api/v1/admin-panel/dashboard-stats/")
         assert response.status_code == status.HTTP_200_OK
         expected_keys = {
-            "total_users", "active_users_30d", "total_assessments", "high_risk_users",
-            "total_appointments", "pending_appointments", "ai_chat_sessions", "ai_chat_messages",
-            "mood_entries_30d", "journal_entries_30d", "pending_journal_reports",
+            "total_users", "active_users_30d", "high_risk_users",
+            "mood_entries_30d", "journal_entries_30d",
         }
         assert expected_keys.issubset(response.data.keys())
 
-    def test_total_users_counts_only_role_user(self, admin_client, user, admin_user, counselor_user):
+    def test_total_users_counts_only_role_user(self, admin_client, user, admin_user):
         response = admin_client.get("/api/v1/admin-panel/dashboard-stats/")
         assert response.data["total_users"] == 1  # only the `user` fixture has role=user
-
-
-class TestReportGeneration:
-    def test_user_can_generate_csv_report(self, auth_client):
-        response = auth_client.post(
-            "/api/v1/admin-panel/reports/",
-            {"report_type": "monthly", "format": "csv", "period_start": "2026-01-01", "period_end": "2026-01-31"},
-        )
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data["status"] == "completed"
-
-    def test_generated_report_file_url_is_absolute(self, auth_client):
-        """
-        Regression test: the response must carry a full scheme+host URL,
-        not a bare "/media/..." path. A relative path resolves fine when
-        frontend and backend share one origin (the VPS/nginx path), but
-        breaks when they're on different origins (e.g. Vercel + Render)
-        — the browser resolves it against the frontend's own origin
-        instead, 404ing. Caught by GeneratedReportListCreateView.create()
-        serializing without `context={"request": request}`, which is what
-        makes DRF's FileField build an absolute URI in the first place.
-        """
-        response = auth_client.post(
-            "/api/v1/admin-panel/reports/",
-            {"report_type": "monthly", "format": "csv", "period_start": "2026-01-01", "period_end": "2026-01-31"},
-        )
-        assert response.status_code == status.HTTP_201_CREATED
-        assert response.data["file"].startswith("http")
-
-    def test_period_end_before_start_rejected(self, auth_client):
-        response = auth_client.post(
-            "/api/v1/admin-panel/reports/",
-            {"report_type": "monthly", "format": "csv", "period_start": "2026-02-01", "period_end": "2026-01-01"},
-        )
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
-    def test_user_only_sees_own_reports(self, auth_client, other_auth_client):
-        auth_client.post(
-            "/api/v1/admin-panel/reports/",
-            {"report_type": "monthly", "format": "csv", "period_start": "2026-01-01", "period_end": "2026-01-31"},
-        )
-        response = other_auth_client.get("/api/v1/admin-panel/reports/")
-        assert response.data["count"] == 0

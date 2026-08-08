@@ -29,11 +29,8 @@ services:
     startCommand: >-
       python manage.py migrate --noinput &&
       python manage.py collectstatic --noinput &&
-      python manage.py seed_assessments &&
-      python manage.py seed_recommendations &&
       python manage.py seed_emergency_resources &&
       python manage.py setup_periodic_tasks &&
-      python manage.py setup_ai_periodic_tasks &&
       python manage.py bootstrap_admin &&
       gunicorn config.wsgi:application
     envVars:
@@ -55,35 +52,22 @@ services:
       - key: SECURE_SSL_REDIRECT
         value: "True"
       # No persistent background-worker process on the free tier — tasks
-      # (AI analysis dispatch, chat's own analyze_content call, emails)
-      # run synchronously in the request instead. See settings/base.py.
+      # (journal-entry sentiment analysis, crisis detection, emails) run
+      # synchronously in the request instead. See settings/base.py. Safe
+      # here specifically because the sentiment classifier is a small
+      # scikit-learn TF-IDF + logistic regression model, not a Hugging
+      # Face transformer pipeline — it fits the free tier's 512MB RAM
+      # running inline.
       - key: CELERY_TASK_ALWAYS_EAGER
         value: "True"
-      # Off by default: real inference (Hugging Face Transformers) is too
-      # heavy for the free tier's 512MB RAM running synchronously in the
-      # request cycle. Sentiment/emotion analysis tasks no-op gracefully
-      # when this is False — everything else works normally. Flip to
-      # True (and switch requirements/render.txt to also pull in
-      # requirements/ai.txt) only if you've confirmed it fits your plan's
-      # memory limit.
       - key: AI_ANALYSIS_ENABLED
-        value: "False"
+        value: "True"
       # Sets up your login for the deployed site — bootstrap_admin (run
       # as part of startCommand above) creates/updates this account on
       # every deploy. Fill these in, or leave blank to skip creating one.
       - key: DJANGO_SUPERUSER_EMAIL
         sync: false
       - key: DJANGO_SUPERUSER_PASSWORD
-        sync: false
-      # Fill in after creating the other free accounts — see
-      # docs/architecture/free-tier-hosting.md.
-      - key: CHAT_LLM_API_KEY
-        sync: false
-      # Optional — Google Sign-In is skipped entirely if unset (the
-      # frontend button just doesn't render). Same Client ID goes into
-      # the frontend build as VITE_GOOGLE_CLIENT_ID (set in Vercel, not
-      # here — see docs/architecture/free-tier-hosting.md).
-      - key: GOOGLE_CLIENT_ID
         sync: false
       - key: REDIS_URL
         sync: false

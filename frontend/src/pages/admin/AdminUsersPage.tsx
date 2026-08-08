@@ -35,22 +35,22 @@ export default function AdminUsersPage() {
   };
 
   const handlePromoteToAdmin = async (user: AdminUser) => {
-    if (!window.confirm(`Give ${user.full_name} (${user.email}) full admin access?`)) return;
+    if (!window.confirm(`Give ${user.pseudonym} (${user.email}) full admin access?`)) return;
     try {
       const { data } = await usersApi.admin.updateUser(user.id, { role: "admin" });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? data : u)));
-      showToast(`${data.full_name} is now an admin.`, "success");
+      showToast(`${data.pseudonym} is now an admin.`, "success");
     } catch (err) {
       showToast(extractErrorMessage(err, "Couldn't promote this user."), "error");
     }
   };
 
   const handleRemoveAdmin = async (user: AdminUser) => {
-    if (!window.confirm(`Remove admin access from ${user.full_name} (${user.email})?`)) return;
+    if (!window.confirm(`Remove admin access from ${user.pseudonym} (${user.email})?`)) return;
     try {
       const { data } = await usersApi.admin.updateUser(user.id, { role: "user" });
       setUsers((prev) => prev.map((u) => (u.id === user.id ? data : u)));
-      showToast(`Admin access removed from ${data.full_name}.`, "success");
+      showToast(`Admin access removed from ${data.pseudonym}.`, "success");
     } catch (err) {
       showToast(extractErrorMessage(err, "Couldn't remove admin access."), "error");
     }
@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
   const handleDeleteUser = async (user: AdminUser) => {
     if (
       !window.confirm(
-        `Permanently delete ${user.full_name} (${user.email})? This removes all their data and can't be undone.`
+        `Permanently delete ${user.pseudonym} (${user.email})? This removes all their data and can't be undone.`
       )
     ) {
       return;
@@ -67,7 +67,7 @@ export default function AdminUsersPage() {
     try {
       await usersApi.admin.deleteUser(user.id);
       setUsers((prev) => prev.filter((u) => u.id !== user.id));
-      showToast(`${user.full_name}'s account has been deleted.`, "success");
+      showToast(`${user.pseudonym}'s account has been deleted.`, "success");
     } catch (err) {
       showToast(extractErrorMessage(err, "Couldn't delete this user."), "error");
     }
@@ -104,7 +104,7 @@ export default function AdminUsersPage() {
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
             {users.map((u) => (
               <tr key={u.id}>
-                <td className="px-4 py-3">{u.full_name}</td>
+                <td className="px-4 py-3">{u.pseudonym}</td>
                 <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
                 <td className="px-4 py-3 capitalize">{u.role}</td>
                 <td className="px-4 py-3">

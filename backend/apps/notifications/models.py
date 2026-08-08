@@ -14,9 +14,6 @@ class NotificationPreference(BaseModel):
     daily_reminder = models.BooleanField(default=True)
     journal_reminder = models.BooleanField(default=True)
     mood_reminder = models.BooleanField(default=True)
-    meditation_reminder = models.BooleanField(default=False)
-    assessment_reminder = models.BooleanField(default=True)
-    appointment_reminder = models.BooleanField(default=True)
 
     email_enabled = models.BooleanField(default=True)
     in_app_enabled = models.BooleanField(default=True)
@@ -33,9 +30,6 @@ class NotificationType(models.TextChoices):
     DAILY_REMINDER = "daily_reminder", "Daily Reminder"
     JOURNAL_REMINDER = "journal_reminder", "Journal Reminder"
     MOOD_REMINDER = "mood_reminder", "Mood Reminder"
-    MEDITATION_REMINDER = "meditation_reminder", "Meditation Reminder"
-    ASSESSMENT_REMINDER = "assessment_reminder", "Assessment Reminder"
-    APPOINTMENT_REMINDER = "appointment_reminder", "Appointment Reminder"
     SYSTEM = "system", "System Message"
     RISK_ALERT = "risk_alert", "Risk Alert"
 

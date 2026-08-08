@@ -11,10 +11,10 @@ DATABASES = {
     }
 }
 
-# Tests exercise the AI *pipeline* (task wiring, graceful degradation,
-# lexicon/risk-detection logic) with the HF pipelines mocked — see
-# apps/ai_engine/tests/conftest.py — rather than downloading real model
-# weights on every test run.
+# Tests exercise the analysis pipeline (synchronous journal-entry wiring,
+# risk-detection logic) with the sentiment classifier mocked — see
+# conftest.py's `_mock_sentiment_classifier` — rather than requiring a
+# trained joblib artifact to be present for every test run.
 AI_ANALYSIS_ENABLED = True
 
 CELERY_TASK_ALWAYS_EAGER = True

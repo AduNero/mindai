@@ -40,7 +40,8 @@ export default function AdminRiskAlertsPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Risk Alerts</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          Crisis-language detections from assessments, journals, and chat. Review promptly.
+          Deterministic crisis-phrase detections from journal entries. Review promptly. Only the
+          risk tier is stored — the triggering text itself is never logged.
         </p>
       </div>
 
@@ -57,13 +58,6 @@ export default function AdminRiskAlertsPage() {
               <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                 Source: <span className="capitalize">{a.detection_source}</span>
               </p>
-              {a.triggered_phrases.length > 0 && (
-                <ul className="mt-1 list-inside list-disc text-xs text-gray-500 dark:text-gray-400">
-                  {a.triggered_phrases.map((p) => (
-                    <li key={p}>{p}</li>
-                  ))}
-                </ul>
-              )}
               <div className="mt-3 flex items-center gap-3">
                 <span className="text-xs text-gray-400">
                   {a.acknowledged_at ? "User acknowledged resources" : "Not yet acknowledged by user"}

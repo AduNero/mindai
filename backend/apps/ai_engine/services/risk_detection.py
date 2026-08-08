@@ -9,9 +9,8 @@ A production deployment would pair this with clinical/professional review —
 see docs/architecture/emergency-detection.md.
 
 False negatives are expected (this only catches phrasing close to the list
-below); it is a supplementary safety net, not the platform's only line of
-defense — assessment-based checks (e.g. PHQ-9 item 9, see
-apps.assessments.views) run independently of this module.
+below); it is a supplementary safety net, not a monitoring or emergency
+notification system — see docs/architecture/emergency-detection.md.
 """
 
 import re

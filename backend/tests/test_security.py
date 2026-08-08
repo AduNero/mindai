@@ -28,10 +28,11 @@ class TestRateLimiting:
                 "/api/v1/auth/register/",
                 {
                     "email": f"throttle{i}@example.com",
-                    "first_name": "T",
-                    "last_name": "U",
+                    "pseudonym": f"throttle{i}",
                     "password": "CorrectHorse42!",
                     "password_confirm": "CorrectHorse42!",
+                    "age_confirmed": True,
+                    "consent_accepted": True,
                 },
             )
 
@@ -44,12 +45,7 @@ class TestUnauthenticatedAccessRejected:
         [
             "/api/v1/moods/",
             "/api/v1/journals/",
-            "/api/v1/wellness/sleep/",
-            "/api/v1/assessments/results/",
-            "/api/v1/ai/wellness-score/",
-            "/api/v1/recommendations/",
-            "/api/v1/chat/sessions/",
-            "/api/v1/appointments/",
+            "/api/v1/ai/risk-assessments/",
             "/api/v1/notifications/",
             "/api/v1/users/me/",
             "/api/v1/admin-panel/dashboard-stats/",
@@ -122,18 +118,32 @@ class TestFileUploadValidation:
 class TestIDORAcrossOwnedResources:
     """Spot-check that owner-scoped detail endpoints don't leak other users' objects by ID."""
 
-    def test_cannot_retrieve_other_users_wellness_score_history(self, auth_client, other_user):
-        from apps.ai_engine.models import WellnessScoreSnapshot
-        from datetime import date
+    def test_cannot_retrieve_other_users_journal_entry(self, auth_client, other_user):
+        from apps.journals.models import JournalEntry
+        from django.utils import timezone
 
-        WellnessScoreSnapshot.objects.create(user=other_user, score_date=date.today(), overall_score=42)
+        entry = JournalEntry.objects.create(
+            user=other_user, title="Private", body="Not yours.", entry_date=timezone.localdate()
+        )
+        response = auth_client.get(f"/api/v1/journals/{entry.id}/")
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
-        response = auth_client.get("/api/v1/ai/wellness-score/")
-        assert response.data == [] or all(item.get("overall_score") != 42 for item in response.data)
+    def test_cannot_action_other_users_journal_sentiment(self, auth_client, other_user):
+        from apps.ai_engine.services.analysis import analyze_journal_entry
+        from apps.journals.models import JournalEntry
+        from django.utils import timezone
 
-    def test_cannot_view_other_users_chat_session(self, auth_client, other_user):
-        from apps.chat.models import ChatSession
+        entry = JournalEntry.objects.create(
+            user=other_user, title="Private", body="Not yours.", entry_date=timezone.localdate()
+        )
+        analyze_journal_entry(entry)
 
-        session = ChatSession.objects.create(user=other_user, title="Private")
-        response = auth_client.get(f"/api/v1/chat/sessions/{session.id}/")
+        response = auth_client.patch(f"/api/v1/journals/{entry.id}/sentiment/", {"user_action": "accepted"})
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_cannot_acknowledge_other_users_risk_assessment(self, auth_client, other_user):
+        from apps.ai_engine.models import RiskAssessment
+
+        risk = RiskAssessment.objects.create(user=other_user, risk_level="high", detection_source="journal")
+        response = auth_client.post(f"/api/v1/ai/risk-assessments/{risk.id}/acknowledge/")
         assert response.status_code == status.HTTP_404_NOT_FOUND

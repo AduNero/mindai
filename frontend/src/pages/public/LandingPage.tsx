@@ -3,17 +3,15 @@ import { Link } from "react-router-dom";
 
 const FEATURES = [
   { emoji: "😊", title: "Mood Tracking", description: "Log your mood in seconds and see how it trends over weeks and months." },
-  { emoji: "📓", title: "Smart Journaling", description: "Write freely — AI sentiment analysis helps surface patterns you might miss." },
-  { emoji: "💬", title: "AI Therapy Chat", description: "Talk things through anytime with an AI companion, with full conversation history." },
-  { emoji: "🧠", title: "Validated Assessments", description: "PHQ-9, GAD-7, stress, burnout, and self-esteem screening — all in one place." },
-  { emoji: "📅", title: "Counseling Appointments", description: "Book, reschedule, or cancel sessions with licensed counselors." },
-  { emoji: "📈", title: "Wellness Score", description: "A single, explainable score combining mood, journaling, sleep, and more." },
+  { emoji: "📓", title: "Private Journaling", description: "Write freely in a journal that's private by default — search, tag, and delete entries any time." },
+  { emoji: "🏷️", title: "Tentative Sentiment Label", description: "Each entry gets an AI-suggested positive/negative/neutral label you can accept, reject, or correct." },
+  { emoji: "🆘", title: "Support Resources", description: "Emergency and crisis resources are always visible, never AI-gated, and never claim to monitor you in real time." },
 ];
 
 const STEPS = [
   { step: "1", title: "Check in daily", description: "Log your mood and jot a quick journal entry — it takes under a minute." },
-  { step: "2", title: "Get personalized insight", description: "AI analyzes your entries and assessment results to spot trends early." },
-  { step: "3", title: "Take action", description: "Follow tailored recommendations, or book time with a counselor when it matters." },
+  { step: "2", title: "See a tentative label", description: "Each journal entry gets an AI-suggested sentiment label you can accept, reject, or correct." },
+  { step: "3", title: "Watch your trend", description: "Your dashboard shows raw mood and journal data over time — no scores, no recommendations, just your own record." },
 ];
 
 export default function LandingPage() {
@@ -28,14 +26,15 @@ export default function LandingPage() {
             className="mx-auto max-w-3xl text-center"
           >
             <span className="badge bg-brand-100 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-              AI-Powered Mental Wellness
+              Mood &amp; Journal Log
             </span>
             <h1 className="mt-6 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-6xl dark:text-white">
-              Understand your mind,<br className="hidden sm:block" /> one day at a time.
+              A private place to track<br className="hidden sm:block" /> your mood and thoughts.
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600 dark:text-gray-300">
-              MindCare AI helps you track your mood, journal with purpose, and get AI-informed
-              support — so you can spot what's working before it becomes a problem.
+              MindCare AI is a simple, pseudonymous mood and journaling log. Log your mood, write
+              freely, and get a tentative AI sentiment label you can accept, reject, or correct —
+              nothing more.
             </p>
             <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link to="/register" className="btn-primary px-6 py-3 text-base">
@@ -54,10 +53,10 @@ export default function LandingPage() {
 
       <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Everything you need to stay on top of your mental health</h2>
-          <p className="mt-3 text-gray-500 dark:text-gray-400">One platform for tracking, reflection, AI support, and professional care.</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">A bounded set of features, on purpose</h2>
+          <p className="mt-3 text-gray-500 dark:text-gray-400">Mood, journaling, one tentative AI label, and support resources — nothing else.</p>
         </div>
-        <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
             <motion.div
               key={f.title}

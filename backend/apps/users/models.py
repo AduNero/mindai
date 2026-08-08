@@ -3,18 +3,16 @@ from datetime import timedelta
 
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
-from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
-from apps.common.constants import GENDER_CHOICES, THEME_CHOICES
+from apps.common.constants import THEME_CHOICES
 from apps.common.models import BaseModel, TimeStampedModel, UUIDPrimaryKeyModel
 
 
 class Role(models.TextChoices):
     USER = "user", "User"
     ADMIN = "admin", "Administrator"
-    COUNSELOR = "counselor", "Counselor"
 
 
 class UserManager(BaseUserManager):
@@ -55,19 +53,27 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDPrimaryKeyModel, TimeStampedM
     """
     Custom user model, authenticated by email rather than username.
 
-    `role` drives coarse-grained access (User / Administrator / Counselor);
+    Pseudonymous by design: `email` is only ever used to log in and for
+    account recovery (password reset, verification codes) — it is never
+    shown anywhere as the user's identity. `pseudonym` is what's actually
+    displayed everywhere a name would otherwise appear.
+
+    `role` drives coarse-grained access (User / Administrator);
     fine-grained permissions still use Django's built-in permission system
     where useful (e.g. Django admin site access via `is_staff`).
     """
 
     email = models.EmailField(unique=True, db_index=True)
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    pseudonym = models.CharField(max_length=50, unique=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.USER)
 
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
+
+    # Required before account creation completes — see RegisterSerializer.
+    age_confirmed_at = models.DateTimeField(null=True, blank=True)
+    consent_accepted_at = models.DateTimeField(null=True, blank=True)
 
     # Security / audit fields
     failed_login_attempts = models.PositiveSmallIntegerField(default=0)
@@ -77,7 +83,7 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDPrimaryKeyModel, TimeStampedM
     objects = UserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["first_name", "last_name"]
+    REQUIRED_FIELDS = ["pseudonym"]
 
     class Meta:
         db_table = "users"
@@ -89,11 +95,7 @@ class User(AbstractBaseUser, PermissionsMixin, UUIDPrimaryKeyModel, TimeStampedM
         ]
 
     def __str__(self):
-        return f"{self.email} ({self.get_role_display()})"
-
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
+        return f"{self.pseudonym} ({self.get_role_display()})"
 
     @property
     def is_locked(self):
@@ -106,24 +108,19 @@ def profile_picture_path(instance, filename):
 
 
 class Profile(BaseModel):
-    """Extended, non-authentication profile data — one-to-one with User."""
+    """
+    Extended, non-authentication profile data — one-to-one with User.
+
+    Deliberately minimal: no date of birth, gender, phone number, or
+    emergency contact — those are identifying data inconsistent with a
+    pseudonymous account (age is a one-time attestation on User, not a
+    stored birthdate; see User.age_confirmed_at).
+    """
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
     profile_picture = models.ImageField(upload_to=profile_picture_path, null=True, blank=True)
     bio = models.TextField(max_length=1000, blank=True)
-    date_of_birth = models.DateField(null=True, blank=True)
-    gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True)
-
-    phone_regex = RegexValidator(regex=r"^\+?[1-9]\d{6,14}$", message="Enter a valid phone number.")
-    phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
-
-    # ISO 3166-1 alpha-2 country code — drives localized emergency/crisis resources.
-    country_code = models.CharField(max_length=2, blank=True, db_index=True)
     timezone = models.CharField(max_length=50, default="UTC")
-
-    emergency_contact_name = models.CharField(max_length=150, blank=True)
-    emergency_contact_phone = models.CharField(max_length=17, blank=True)
-
     theme_preference = models.CharField(max_length=10, choices=THEME_CHOICES, default="system")
 
     class Meta:
@@ -132,30 +129,7 @@ class Profile(BaseModel):
         verbose_name_plural = "Profiles"
 
     def __str__(self):
-        return f"Profile<{self.user.email}>"
-
-
-class CounselorProfile(BaseModel):
-    """Additional fields for users with role=COUNSELOR, managed by admins."""
-
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name="counselor_profile",
-        limit_choices_to={"role": Role.COUNSELOR},
-    )
-    specialization = models.CharField(max_length=255, blank=True)
-    license_number = models.CharField(max_length=100, blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=0)
-    bio = models.TextField(max_length=2000, blank=True)
-    is_accepting_appointments = models.BooleanField(default=True)
-    approved_by_admin = models.BooleanField(default=False)
-
-    class Meta:
-        db_table = "counselor_profiles"
-        verbose_name = "Counselor Profile"
-        verbose_name_plural = "Counselor Profiles"
-
-    def __str__(self):
-        return f"Counselor<{self.user.email}>"
+        return f"Profile<{self.user.pseudonym}>"
 
 
 class EmailVerificationToken(BaseModel):

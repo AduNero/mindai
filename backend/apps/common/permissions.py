@@ -11,22 +11,6 @@ class IsAdmin(BasePermission):
         return bool(user and user.is_authenticated and (user.role == Role.ADMIN or user.is_superuser))
 
 
-class IsCounselor(BasePermission):
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(user and user.is_authenticated and user.role == Role.COUNSELOR)
-
-
-class IsAdminOrCounselor(BasePermission):
-    def has_permission(self, request, view):
-        user = request.user
-        return bool(
-            user
-            and user.is_authenticated
-            and (user.role in (Role.ADMIN, Role.COUNSELOR) or user.is_superuser)
-        )
-
-
 class IsOwner(BasePermission):
     """Object-level permission: the object's `user` field must match request.user."""
 

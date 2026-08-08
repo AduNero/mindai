@@ -19,14 +19,11 @@ from apps.common.pagination import StandardResultsSetPagination
 from apps.common.permissions import IsAdmin
 from apps.common.utils import get_client_ip, get_user_agent
 
-from .google_oauth import GoogleTokenError, verify_google_id_token
-from .models import CounselorProfile, Profile, Role, User, UserSession
+from .models import Profile, User, UserSession
 from .serializers import (
-    AdminPromoteCounselorSerializer,
     AdminUserSerializer,
     AdminUserUpdateSerializer,
     ChangePasswordSerializer,
-    CounselorProfileSerializer,
     DeleteAccountSerializer,
     EmailVerificationConfirmSerializer,
     MindCareTokenObtainPairSerializer,
@@ -36,7 +33,6 @@ from .serializers import (
     ProfileSerializer,
     RegisterSerializer,
     ResendVerificationSerializer,
-    UserSerializer,
     UserSessionSerializer,
 )
 from .tasks import send_password_reset_email, send_verification_email
@@ -75,7 +71,7 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
 
         token = issue_email_verification_token(user)
-        _send_email_safely(send_verification_email, user.email, user.first_name, token.token)
+        _send_email_safely(send_verification_email, user.email, user.pseudonym, token.token)
         log_audit_event(AuditAction.PROFILE_UPDATED, user=user, request=request, event="account_created")
 
         from apps.notifications.models import NotificationChannel, NotificationType
@@ -100,96 +96,6 @@ class LoginView(TokenObtainPairView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "auth"
-
-
-class GoogleLoginView(APIView):
-    """
-    Logs in with a Google Identity Services ID token, creating the
-    account on first sign-in. Deliberately skips this app's own email-OTP
-    verification step and password entirely — Google has already proven
-    ownership of the address (checked via `email_verified` on the
-    token), which is at least as strong a signal as our own OTP flow, and
-    there's no password to check or lock out in the first place. A
-    locked-out (repeated-password-failure) account can still sign in this
-    way, since that lock exists specifically to slow down password
-    guessing, a vector this path doesn't use at all; success here clears
-    it, same as a correct password would.
-    """
-
-    permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
-    throttle_scope = "auth"
-
-    def post(self, request):
-        credential = request.data.get("credential")
-        if not credential:
-            return Response({"detail": "credential is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            claims = verify_google_id_token(credential)
-        except GoogleTokenError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not claims.get("email_verified"):
-            return Response(
-                {"detail": "Google did not confirm this email address is verified."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        email = claims["email"].lower()
-        user = User.objects.filter(email__iexact=email).first()
-        created = user is None
-        if created:
-            user = User.objects.create(
-                email=email,
-                first_name=claims.get("given_name") or "Google",
-                last_name=claims.get("family_name") or "User",
-                is_email_verified=True,
-            )
-            user.set_unusable_password()
-            user.save(update_fields=["password"])
-        elif not user.is_email_verified:
-            user.is_email_verified = True
-            user.save(update_fields=["is_email_verified"])
-
-        if not user.is_active:
-            log_audit_event(AuditAction.LOGIN_FAILED, user=user, request=request, reason="account_inactive")
-            return Response({"detail": "This account has been deactivated."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        user.failed_login_attempts = 0
-        user.locked_until = None
-        user.last_login_ip = get_client_ip(request)
-        user.save(update_fields=["failed_login_attempts", "locked_until", "last_login_ip"])
-
-        refresh = MindCareTokenObtainPairSerializer.get_token(user)
-        UserSession.objects.create(
-            user=user,
-            refresh_token_jti=str(refresh["jti"]),
-            device_label=get_user_agent(request)[:255],
-            ip_address=get_client_ip(request),
-            user_agent=get_user_agent(request),
-            expires_at=datetime.fromtimestamp(refresh["exp"], tz=dt_timezone.utc),
-        )
-        log_audit_event(AuditAction.LOGIN_SUCCESS, user=user, request=request, provider="google")
-        if created:
-            from apps.notifications.models import NotificationChannel, NotificationType
-            from apps.notifications.services import notify
-
-            notify(
-                user,
-                NotificationType.SYSTEM,
-                "Welcome to MindCare AI",
-                "Your account was created via Google Sign-In.",
-                channel=NotificationChannel.IN_APP,
-            )
-
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "user": UserSerializer(user).data,
-            }
-        )
 
 
 class CustomTokenRefreshView(TokenRefreshView):
@@ -300,7 +206,7 @@ class ResendVerificationEmailView(APIView):
 
         if user and not user.is_email_verified:
             token = issue_email_verification_token(user)
-            _send_email_safely(send_verification_email, user.email, user.first_name, token.token)
+            _send_email_safely(send_verification_email, user.email, user.pseudonym, token.token)
 
         # Always return a generic message — do not reveal whether the email exists.
         return Response({"message": "If that account exists and is unverified, a new email has been sent."})
@@ -320,7 +226,7 @@ class PasswordResetRequestView(APIView):
             from apps.common.utils import get_client_ip
 
             token = issue_password_reset_token(user, requested_ip=get_client_ip(request))
-            _send_email_safely(send_password_reset_email, user.email, user.first_name, token.token)
+            _send_email_safely(send_password_reset_email, user.email, user.pseudonym, token.token)
             log_audit_event(AuditAction.PASSWORD_RESET_REQUESTED, user=user, request=request)
 
         return Response({"message": "If that account exists, a password reset email has been sent."})
@@ -463,7 +369,7 @@ class AdminUserListView(generics.ListAPIView):
     permission_classes = [IsAdmin]
     pagination_class = StandardResultsSetPagination
     filterset_fields = ["role", "is_active", "is_email_verified"]
-    search_fields = ["email", "first_name", "last_name"]
+    search_fields = ["email", "pseudonym"]
     ordering_fields = ["created_at", "last_login", "email"]
     queryset = User.objects.all().order_by("-created_at")
 
@@ -517,74 +423,5 @@ class AdminUserDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
 
 
-class CounselorListView(generics.ListAPIView):
-    """Public-to-authenticated-users listing of counselors available for booking."""
-
-    serializer_class = CounselorProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    pagination_class = StandardResultsSetPagination
-
-    def get_queryset(self):
-        return CounselorProfile.objects.filter(
-            is_accepting_appointments=True, approved_by_admin=True
-        ).select_related("user")
-
-
-class AdminCounselorListView(generics.ListAPIView):
-    serializer_class = CounselorProfileSerializer
-    permission_classes = [IsAdmin]
-    pagination_class = StandardResultsSetPagination
-    queryset = CounselorProfile.objects.all().select_related("user")
-
-
-class AdminCounselorDetailView(generics.RetrieveUpdateAPIView):
-    serializer_class = CounselorProfileSerializer
-    permission_classes = [IsAdmin]
-    queryset = CounselorProfile.objects.all()
-    lookup_field = "id"
-
-    def perform_update(self, serializer):
-        from apps.admin_panel.models import AdminActionLog
-
-        instance = serializer.save()
-        AdminActionLog.objects.create(
-            admin_user=self.request.user,
-            action="counselor_updated",
-            target_model="CounselorProfile",
-            target_id=str(instance.id),
-            description=f"approved={instance.approved_by_admin}, accepting={instance.is_accepting_appointments}",
-        )
-
-
-class PromoteToCounselorView(APIView):
-    permission_classes = [IsAdmin]
-
-    def post(self, request):
-        serializer = AdminPromoteCounselorSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        user = User.objects.get(id=data["user_id"])
-        user.role = Role.COUNSELOR
-        user.save(update_fields=["role"])
-
-        counselor_profile = CounselorProfile.objects.create(
-            user=user,
-            specialization=data["specialization"],
-            license_number=data["license_number"],
-            years_of_experience=data["years_of_experience"],
-            bio=data["bio"],
-            approved_by_admin=True,
-        )
-
-        from apps.admin_panel.models import AdminActionLog
-
-        AdminActionLog.objects.create(
-            admin_user=request.user,
-            action="user_promoted_to_counselor",
-            target_model="User",
-            target_id=str(user.id),
-        )
-        return Response(CounselorProfileSerializer(counselor_profile).data, status=status.HTTP_201_CREATED)
 
 

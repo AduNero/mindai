@@ -23,22 +23,19 @@ class Tag(BaseModel):
         return self.name
 
 
-class Visibility(models.TextChoices):
-    PRIVATE = "private", "Private"
-    PUBLIC = "public", "Public"
-
-
 class JournalEntry(BaseModel):
+    """Private by default and only ever private — no public-sharing/moderation surface."""
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="journal_entries")
     title = models.CharField(max_length=255)
     body = models.TextField()
     mood = models.CharField(max_length=20, choices=MOOD_CHOICES, blank=True)
     tags = models.ManyToManyField(Tag, blank=True, related_name="journal_entries")
     entry_date = models.DateField(db_index=True)
-    visibility = models.CharField(max_length=10, choices=Visibility.choices, default=Visibility.PRIVATE)
 
-    # Set by the AI risk-detection pipeline (see apps.ai_engine) when
-    # crisis-indicating language is found; surfaced to admins as a risk alert.
+    # Set by the deterministic crisis-phrase detector (see apps.ai_engine)
+    # when crisis-indicating language is found; surfaced to admins as a
+    # risk alert. Never derived from the AI sentiment label.
     is_flagged = models.BooleanField(default=False)
 
     class Meta:
@@ -53,49 +50,3 @@ class JournalEntry(BaseModel):
 
     def __str__(self):
         return f"{self.title} ({self.user_id})"
-
-
-class JournalReportReason(models.TextChoices):
-    SELF_HARM = "self_harm", "Self-harm / crisis content"
-    HARASSMENT = "harassment", "Harassment or abuse"
-    SPAM = "spam", "Spam"
-    INAPPROPRIATE = "inappropriate", "Inappropriate content"
-    OTHER = "other", "Other"
-
-
-class JournalReportStatus(models.TextChoices):
-    PENDING = "pending", "Pending review"
-    REVIEWED = "reviewed", "Reviewed"
-    ACTIONED = "actioned", "Actioned"
-    DISMISSED = "dismissed", "Dismissed"
-
-
-class JournalReport(BaseModel):
-    """
-    A moderation flag on a journal entry — either raised automatically by
-    the AI risk-detection pipeline (`reported_by=None`) or manually by a
-    user on a public entry.
-    """
-
-    journal_entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name="reports")
-    reported_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="journal_reports_filed",
-    )
-    reason = models.CharField(max_length=20, choices=JournalReportReason.choices)
-    details = models.TextField(blank=True)
-    status = models.CharField(max_length=20, choices=JournalReportStatus.choices, default=JournalReportStatus.PENDING)
-    reviewed_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="journal_reports_reviewed",
-    )
-    review_notes = models.TextField(blank=True)
-    reviewed_at = models.DateTimeField(null=True, blank=True)
-
-    class Meta:
-        db_table = "journal_reports"
-        ordering = ["-created_at"]
-        indexes = [models.Index(fields=["status"])]
-
-    def __str__(self):
-        return f"Report<{self.journal_entry_id}> - {self.reason}"

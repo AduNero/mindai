@@ -4,10 +4,11 @@ import { apiClient } from "./client";
 
 export interface RegisterPayload {
   email: string;
-  first_name: string;
-  last_name: string;
+  pseudonym: string;
   password: string;
   password_confirm: string;
+  age_confirmed: boolean;
+  consent_accepted: boolean;
 }
 
 export const authApi = {
@@ -16,8 +17,6 @@ export const authApi = {
 
   login: (email: string, password: string, remember_me: boolean) =>
     apiClient.post<LoginResponse>("/auth/login/", { email, password, remember_me }),
-
-  googleLogin: (credential: string) => apiClient.post<LoginResponse>("/auth/google/", { credential }),
 
   refresh: (refresh: string) => apiClient.post<{ access: string }>("/auth/refresh/", { refresh }),
 

@@ -1,4 +1,4 @@
-import type { JournalEntry, JournalStats, Paginated, Tag } from "@/types";
+import type { JournalEntry, JournalStats, Paginated, SentimentResult, Tag } from "@/types";
 
 import { apiClient } from "./client";
 
@@ -8,7 +8,11 @@ export interface JournalEntryPayload {
   mood?: string;
   tags?: string[];
   entry_date: string;
-  visibility?: "private" | "public";
+}
+
+export interface SentimentActionPayload {
+  user_action: "accepted" | "rejected" | "corrected";
+  corrected_label?: "positive" | "negative" | "neutral";
 }
 
 export const journalsApi = {
@@ -28,6 +32,6 @@ export const journalsApi = {
 
   tags: () => apiClient.get<Paginated<Tag>>("/journals/tags/"),
 
-  report: (journal_entry: string, reason: string, details?: string) =>
-    apiClient.post("/journals/reports/", { journal_entry, reason, details }),
+  actionSentiment: (id: string, payload: SentimentActionPayload) =>
+    apiClient.patch<SentimentResult>(`/journals/${id}/sentiment/`, payload),
 };

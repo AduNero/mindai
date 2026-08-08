@@ -53,7 +53,7 @@ class TestAdminResourceManagement:
 
 
 class TestEmergencyResources:
-    def test_falls_back_to_default_country_when_user_country_unset(self, auth_client, settings):
+    def test_lists_only_default_country_resources(self, auth_client, settings):
         settings.DEFAULT_CRISIS_COUNTRY = "US"
         EmergencyResource.objects.create(country_code="US", name="988 Lifeline", phone_number="988")
         EmergencyResource.objects.create(country_code="GH", name="Ghana Helpline", phone_number="0800")
@@ -62,14 +62,3 @@ class TestEmergencyResources:
 
         assert response.data["count"] == 1
         assert response.data["results"][0]["country_code"] == "US"
-
-    def test_uses_profile_country_when_set(self, auth_client, user):
-        user.profile.country_code = "GH"
-        user.profile.save()
-        EmergencyResource.objects.create(country_code="US", name="988 Lifeline", phone_number="988")
-        EmergencyResource.objects.create(country_code="GH", name="Ghana Helpline", phone_number="0800")
-
-        response = auth_client.get("/api/v1/resources/emergency/")
-
-        assert response.data["count"] == 1
-        assert response.data["results"][0]["country_code"] == "GH"

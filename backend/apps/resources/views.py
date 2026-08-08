@@ -63,21 +63,17 @@ class AdminResourceViewSet(viewsets.ModelViewSet):
 
 class EmergencyResourceListView(generics.ListAPIView):
     """
-    Crisis hotlines, filtered by the requesting user's country (falls back
-    to DEFAULT_CRISIS_COUNTRY). Used by both the Resource Center's
-    "Emergency Resources" tab and the crisis-detection flow.
+    Crisis hotlines for DEFAULT_CRISIS_COUNTRY. Always visible, never
+    AI-triggered — used by both the Resource Center's "Emergency Resources"
+    tab and the crisis-detection flow. Profile carries no location data
+    (pseudonymous by design), so this isn't personalized by country.
     """
 
     serializer_class = EmergencyResourceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        profile = getattr(self.request.user, "profile", None)
-        country_code = (profile.country_code if profile else "") or settings.DEFAULT_CRISIS_COUNTRY
-        qs = EmergencyResource.objects.filter(country_code=country_code)
-        if not qs.exists():
-            qs = EmergencyResource.objects.filter(country_code=settings.DEFAULT_CRISIS_COUNTRY)
-        return qs.order_by("name")
+        return EmergencyResource.objects.filter(country_code=settings.DEFAULT_CRISIS_COUNTRY).order_by("name")
 
 
 class AdminEmergencyResourceViewSet(viewsets.ModelViewSet):

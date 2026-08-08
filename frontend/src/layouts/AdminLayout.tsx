@@ -3,26 +3,13 @@ import { Outlet } from "react-router-dom";
 
 import { DashboardSidebar, SidebarNavItem } from "@/components/common/DashboardSidebar";
 import { DashboardTopbar } from "@/components/common/DashboardTopbar";
-import {
-  CalendarIcon,
-  ChartIcon,
-  ClipboardIcon,
-  CompassIcon,
-  HeartIcon,
-  HomeIcon,
-  ShieldIcon,
-  UserIcon,
-} from "@/components/common/icons";
+import { CompassIcon, HeartIcon, HomeIcon, ShieldIcon, UserIcon } from "@/components/common/icons";
 
 const NAV_ITEMS: SidebarNavItem[] = [
   { to: "/admin", label: "Overview", icon: HomeIcon, end: true },
   { to: "/admin/users", label: "Users", icon: UserIcon },
-  { to: "/admin/journal-reports", label: "Journal Moderation", icon: ClipboardIcon },
   { to: "/admin/risk-alerts", label: "Risk Alerts", icon: HeartIcon },
-  { to: "/admin/counselors", label: "Counselors", icon: UserIcon },
-  { to: "/admin/appointments", label: "Appointments", icon: CalendarIcon },
   { to: "/admin/resources", label: "Resources", icon: CompassIcon },
-  { to: "/admin/reports", label: "Reports", icon: ChartIcon },
   { to: "/admin/audit-logs", label: "Audit Logs", icon: ShieldIcon },
 ];
 

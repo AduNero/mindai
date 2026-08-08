@@ -24,8 +24,7 @@ class Command(BaseCommand):
             self.stdout.write("DJANGO_SUPERUSER_EMAIL/PASSWORD not set — skipping.")
             return
 
-        first_name = os.environ.get("DJANGO_SUPERUSER_FIRST_NAME", "Admin")
-        last_name = os.environ.get("DJANGO_SUPERUSER_LAST_NAME", "User")
+        pseudonym = os.environ.get("DJANGO_SUPERUSER_PSEUDONYM", "Admin")
 
         user = User.objects.filter(email__iexact=email).first()
         if user:
@@ -38,7 +37,5 @@ class Command(BaseCommand):
             user.save()
             self.stdout.write(self.style.SUCCESS(f"Updated existing superuser: {email}"))
         else:
-            User.objects.create_superuser(
-                email=email, password=password, first_name=first_name, last_name=last_name
-            )
+            User.objects.create_superuser(email=email, password=password, pseudonym=pseudonym)
             self.stdout.write(self.style.SUCCESS(f"Created superuser: {email}"))

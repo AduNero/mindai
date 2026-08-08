@@ -3,25 +3,35 @@ const FEATURE_GROUPS = [
     title: "Track",
     items: [
       { name: "Mood Tracker", description: "8 mood states with 1-10 intensity, notes, and weekly/monthly graphs." },
-      { name: "Journal", description: "Private or public entries, tags, search, and automatic sentiment analysis." },
-      { name: "Sleep & Meditation", description: "Log sleep quality and guided meditation sessions." },
+      { name: "Journal", description: "Private-by-default entries, tags, and search." },
     ],
   },
   {
-    title: "Understand",
+    title: "Tentative AI Label",
     items: [
-      { name: "Wellness Score", description: "A 0-100 score blending mood, journaling, assessments, sleep, and chat sentiment." },
-      { name: "AI Sentiment & Emotion Analysis", description: "Every journal entry is analyzed for sentiment, stress, anxiety, and emotion." },
-      { name: "Assessments", description: "PHQ-9, GAD-7, stress, burnout, and self-esteem — scored with severity and history." },
+      {
+        name: "Sentiment Label",
+        description:
+          "Each journal entry gets a positive/negative/neutral label from a TF-IDF + logistic regression classifier — a single, bounded text-classification feature, not a general AI assistant.",
+      },
+      {
+        name: "Accept, reject, or correct",
+        description: "The label is always marked tentative and AI-suggested — you control whether it's accepted, rejected, or corrected.",
+      },
     ],
   },
   {
-    title: "Get Support",
+    title: "Support",
     items: [
-      { name: "AI Companion Chat", description: "AI-powered conversations with searchable history and export." },
-      { name: "Recommendations", description: "Personalized suggestions that improve as more data is collected." },
-      { name: "Counseling Appointments", description: "Book, reschedule, or cancel sessions with a counselor." },
-      { name: "Crisis Resources", description: "Location-aware emergency contacts, always one tap away." },
+      {
+        name: "Crisis Resources",
+        description: "Emergency and crisis resources are always visible on the Resources page — never gated behind AI output.",
+      },
+      {
+        name: "Deterministic safety check",
+        description:
+          "A fixed, rule-based phrase check (not AI, not the sentiment model) can surface a support-resource card on a journal entry. It never claims real-time monitoring and never contacts anyone on your behalf.",
+      },
     ],
   },
 ];
@@ -32,7 +42,7 @@ export default function FeaturesPage() {
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white">Features</h1>
         <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-          Everything you need to notice patterns, understand them, and act on them.
+          A deliberately small, bounded feature set — mood, journaling, and one tentative AI label.
         </p>
       </div>
 

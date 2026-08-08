@@ -13,8 +13,9 @@ export function Footer() {
               MindCare AI
             </p>
             <p className="mt-3 max-w-sm text-sm text-gray-500 dark:text-gray-400">
-              AI-powered mental health monitoring and support. Not a substitute for professional
-              diagnosis or treatment — if you're in crisis, contact local emergency services.
+              A private, pseudonymous mood and journal log with one AI feature: a tentative
+              sentiment label on your entries. Not a substitute for professional care — if you're
+              in crisis, contact local emergency services.
             </p>
           </div>
           <div>
@@ -22,6 +23,7 @@ export function Footer() {
             <ul className="mt-3 space-y-2 text-sm text-gray-500 dark:text-gray-400">
               <li><Link to="/features" className="hover:text-brand-600">Features</Link></li>
               <li><Link to="/faq" className="hover:text-brand-600">FAQ</Link></li>
+              <li><Link to="/privacy" className="hover:text-brand-600">Privacy notice</Link></li>
             </ul>
           </div>
           <div>

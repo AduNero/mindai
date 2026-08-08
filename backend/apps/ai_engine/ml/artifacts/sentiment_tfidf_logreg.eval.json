@@ -1,0 +1,53 @@
+{
+  "model_version": "tfidf-logreg-tweeteval-4fbd22cd",
+  "tweeteval_commit_sha": "4fbd22cd78421f05b1ecdb4fc5725bc7a7bd8f66",
+  "trained_at": "2026-08-08T16:53:24.925877+00:00",
+  "n_train": 45615,
+  "n_test": 12284,
+  "accuracy": 0.5921523933572126,
+  "macro_f1": 0.5590671707298275,
+  "per_class": {
+    "negative": {
+      "precision": 0.6860772895712017,
+      "recall": 0.32628398791540786,
+      "f1-score": 0.4422453506227606,
+      "support": 3972.0
+    },
+    "neutral": {
+      "precision": 0.5885484289794859,
+      "recall": 0.7635169277412834,
+      "f1-score": 0.664711489112105,
+      "support": 5937.0
+    },
+    "positive": {
+      "precision": 0.5365763089491273,
+      "recall": 0.608421052631579,
+      "f1-score": 0.5702446724546172,
+      "support": 2375.0
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "matrix": [
+      [
+        1296,
+        2308,
+        368
+      ],
+      [
+        524,
+        4533,
+        880
+      ],
+      [
+        69,
+        861,
+        1445
+      ]
+    ]
+  }
+}

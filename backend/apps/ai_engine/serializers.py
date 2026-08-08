@@ -1,52 +1,37 @@
 from rest_framework import serializers
 
-from .models import EmotionResult, MoodPrediction, RiskAssessment, SentimentResult, WellnessScoreSnapshot
+from apps.common.constants import SENTIMENT_CHOICES
+
+from .models import RiskAssessment, SentimentResult
 
 
 class SentimentResultSerializer(serializers.ModelSerializer):
     class Meta:
         model = SentimentResult
         fields = [
-            "id", "sentiment", "confidence_score", "stress_score", "anxiety_score",
-            "burnout_score", "depression_indicator_score", "keywords", "model_version", "analyzed_at",
+            "id", "label", "confidence", "model_version",
+            "user_action", "corrected_label", "actioned_at", "created_at",
         ]
+        read_only_fields = fields
 
 
-class EmotionResultSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EmotionResult
-        fields = ["id", "dominant_emotion", "scores", "model_version", "analyzed_at"]
+class SentimentActionSerializer(serializers.Serializer):
+    """Accept / reject / correct the classifier's tentative label on a journal entry."""
 
+    user_action = serializers.ChoiceField(choices=["accepted", "rejected", "corrected"])
+    corrected_label = serializers.ChoiceField(choices=[c[0] for c in SENTIMENT_CHOICES], required=False)
 
-class ContentAnalysisSerializer(serializers.Serializer):
-    """Combined sentiment + emotion analysis for a single piece of content (journal entry or chat message)."""
-
-    sentiment = SentimentResultSerializer(allow_null=True)
-    emotion = EmotionResultSerializer(allow_null=True)
+    def validate(self, attrs):
+        if attrs["user_action"] == "corrected" and not attrs.get("corrected_label"):
+            raise serializers.ValidationError("corrected_label is required when user_action is 'corrected'.")
+        return attrs
 
 
 class RiskAssessmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = RiskAssessment
         fields = [
-            "id", "risk_level", "detection_source", "triggered_phrases", "confidence_score",
+            "id", "risk_level", "detection_source", "confidence_score",
             "resources_shown_at", "acknowledged_at", "created_at",
         ]
-        read_only_fields = fields
-
-
-class WellnessScoreSnapshotSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = WellnessScoreSnapshot
-        fields = [
-            "id", "score_date", "overall_score", "mood_component", "journal_component",
-            "assessment_component", "sleep_component", "activity_component", "chat_sentiment_component",
-        ]
-        read_only_fields = fields
-
-
-class MoodPredictionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MoodPrediction
-        fields = ["id", "predicted_for_date", "predicted_mood", "confidence_score", "based_on_window_days", "generated_at"]
         read_only_fields = fields

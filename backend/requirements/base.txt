@@ -6,16 +6,6 @@ django-environ==0.11.2
 # Auth
 djangorestframework-simplejwt==5.3.1
 
-# Google Sign-In — verifies the ID token client-side auth returns (local
-# signature check against Google's cached public keys, no per-login
-# network round-trip after the first fetch; Google's own guidance is to
-# use this library rather than hitting their tokeninfo debug endpoint
-# per-request in production).
-google-auth==2.32.0
-
-# AI chat companion — OpenAI-API-compatible client (see apps.chat.services.llm)
-openai>=1.50
-
 # Database
 mysqlclient==2.2.4
 
@@ -35,16 +25,19 @@ django-celery-beat==2.6.0
 # libs are usually the slowest to publish wheels for a new Python release.
 Pillow>=10.3
 
-# Report exports
-reportlab==4.2.0
-
 # Input sanitization (admin-authored rich text in Resources)
 bleach==6.1.0
 
-# HTTP client — direct calls (apps.common.email_backends.ResendBackend);
-# already an indirect dependency via openai, pinned here since we now
-# depend on it directly too.
+# HTTP client — direct calls (apps.common.email_backends.ResendBackend,
+# and apps.ai_engine's train_sentiment_classifier command fetching TweetEval).
 requests>=2.31
+
+# Sentiment classifier: TF-IDF + multinomial logistic regression, trained
+# on TweetEval (see apps.ai_engine.management.commands.train_sentiment_classifier).
+# Classical ML, not a deep-learning stack — light enough to live in base.txt
+# rather than a separate AI-only requirements file.
+scikit-learn>=1.4
+joblib>=1.4
 
 # WSGI server
 gunicorn==22.0.0

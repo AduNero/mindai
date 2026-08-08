@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { authApi, notificationsApi } from "@/api";
 import { useAuth } from "@/context/AuthContext";
@@ -12,9 +12,6 @@ const REMINDER_TOGGLES: { key: keyof NotificationPreference; label: string }[] =
   { key: "daily_reminder", label: "Daily check-in reminder" },
   { key: "mood_reminder", label: "Mood logging reminder" },
   { key: "journal_reminder", label: "Journal reminder" },
-  { key: "meditation_reminder", label: "Meditation reminder" },
-  { key: "assessment_reminder", label: "Assessment reminder" },
-  { key: "appointment_reminder", label: "Appointment reminder" },
 ];
 
 export default function SettingsPage() {
@@ -85,7 +82,7 @@ export default function SettingsPage() {
     e.preventDefault();
     if (
       !window.confirm(
-        "This permanently deletes your account and all your data (mood logs, journals, chat history, assessments, appointments). This can't be undone. Continue?"
+        "This permanently deletes your account and all your data (mood logs and journal entries). This can't be undone. Continue?"
       )
     ) {
       return;
@@ -214,11 +211,22 @@ export default function SettingsPage() {
         </ul>
       </section>
 
+      <section className="card">
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Account &amp; data</h2>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          See what we collect, how it's stored, and how to request deletion in our{" "}
+          <Link to="/privacy" className="font-medium text-brand-600 hover:underline">
+            privacy notice
+          </Link>
+          .
+        </p>
+      </section>
+
       <section className="card border border-red-200 dark:border-red-900">
         <h2 className="font-semibold text-red-600 dark:text-red-400">Danger zone</h2>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Permanently delete your account and all your data (mood logs, journals, chat history,
-          assessments, appointments). This can't be undone.
+          Permanently delete your account and all your data (mood logs and journal entries).
+          This is a real, immediate deletion — not a deactivation — and can't be undone.
         </p>
         <form onSubmit={handleDeleteAccount} className="mt-4 space-y-3">
           <input
